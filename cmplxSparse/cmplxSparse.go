@@ -243,3 +243,30 @@ func AddBandSplitRightFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *spa
 
 	return t;
 }
+
+// Function for in-place scalar multiplication of part of sparse Hamiltonian matrix
+// for placing t_0 in correct positions
+func ScaleRangeSparseMatrixIP(startPtr, endPtr int, diagIdx int, A complex128, s *sparseMat) {
+	grdPts := len(s.Data);
+	diagNum := (len(s.Data[0]) + 1)/2;
+
+	if ((startPtr < 0) || (endPtr < 0)) {
+		errors.New("ERROR: startPtr and endPtr cannot be negative!");
+	} else if (startPtr > endPtr) {
+		errors.New("ERROR: startPtr cannot be greater than endPtr!");
+	} else if ((startPtr >= grdPts) || (endPtr >= grdPts)) {
+		errors.New("ERROR: startPtr and endPtr out of range!");
+	}
+
+	if (int(math.Abs(float64(diagIdx))) < diagNum) {
+		targIdx := diagNum - 1 + diagIdx;
+		if (startPtr == endPtr) {
+			s.Data[startPtr][targIdx] *= A;
+		} else {
+			for idx0 := startPtr ; idx0 <= endPtr; idx0++ {
+				s.Data[idx0][targIdx] *= A;
+			}
+		}
+	}
+}
+

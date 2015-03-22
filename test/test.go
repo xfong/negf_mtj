@@ -3,7 +3,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/negf_mtj/negf_mtj/cmplxSparse"
+	"cmplxSparse"
 )
 
 func main() {
@@ -38,6 +38,14 @@ func main() {
 
 	// Test adding band split on right contact...
 	testRightSplit(3);
+
+	// Test scaling portions of matrix...
+	testRangeScale(complex(1.5,0.0), 0, 6, 0, 10 );
+
+	testRangeScale(complex(0.5,0.0), 13, 19, -2, 10 );
+
+	testRangeScale(complex(4.5,0.0), 17, 17, 2, 10 );
+
 }
 
 func testIdentity() {
@@ -57,6 +65,7 @@ func testIdentity() {
 		}
 		fmt.Printf("\n");
 	}
+	fmt.Println("\n");
 }
 
 func testTriDiag( n int ) {
@@ -76,6 +85,7 @@ func testTriDiag( n int ) {
 		}
 		fmt.Printf("\n");
 	}
+	fmt.Println("\n");
 }
 
 func testHamTri( n int ) {
@@ -95,6 +105,7 @@ func testHamTri( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 }
 
 func testScaleMatrix( n int ) {
@@ -127,6 +138,7 @@ func testScaleMatrix( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 
 }
 
@@ -149,6 +161,7 @@ func testVoltage( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 
 }
 
@@ -171,6 +184,7 @@ func testBarrier( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 
 }
 
@@ -193,6 +207,7 @@ func testLeftSplit( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 
         fmt.Println("Adding splitting of 0.75 along (1,1,1) direction\n");
 	tmp2 = cmplxSparse.AddBandSplitLeftFM(1.0, 1.0, 1.0, 0.75, n, tmp);
@@ -205,6 +220,7 @@ func testLeftSplit( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 }
 
 func testRightSplit( n int ) {
@@ -226,6 +242,7 @@ func testRightSplit( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
 
         fmt.Println("Adding splitting of 0.75 along (1,1,1) direction\n");
 	tmp2 = cmplxSparse.AddBandSplitRightFM(1.0, 1.0, 1.0, 0.75, n, tmp);
@@ -238,4 +255,27 @@ func testRightSplit( n int ) {
                 }
                 fmt.Printf("\n");
         }
+	fmt.Println("\n");
+}
+
+func testRangeScale(A complex128, startIdx, endIdx, diagIdx, n int ) {
+        fmt.Println("Initializing Sparse matrix structure\n");
+        tmp := cmplxSparse.New();
+
+        matrixSize := int(2*n);
+        fmt.Println("Making sparse ",matrixSize,"x",matrixSize," Hamiltonian tridiagonal matrix for range scale test\n");
+        cmplxSparse.MakeHamTriDiag(n, tmp);
+
+        fmt.Println("Scaling index ", startIdx, " to ", endIdx, " on the ", diagIdx," diagonal of matrix by ", A);
+	cmplxSparse.ScaleRangeSparseMatrixIP(startIdx, endIdx, diagIdx, A, tmp);
+        fmt.Println("Accessing matrix elements (m,n):");
+
+        for idx0 := 0; idx0 < matrixSize; idx0++ {
+                for idx1 := 0; idx1 < matrixSize; idx1++ {
+                        test := cmplxSparse.AccessMatrix(idx0,idx1,tmp);
+                        fmt.Printf("%f  ", test);
+                }
+                fmt.Printf("\n");
+        }
+	fmt.Println("\n");
 }
