@@ -178,14 +178,13 @@ func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *sparseMat ) *spars
 func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *sparseMat ) {
 	tmpLength := len(s.Data);
 	totalPts := tmpLength/2;
-	for idx0 := 0; idx0 < totalPts; idx0++ {
-		if ((idx0 == N_fm) || (idx0 == N_fm+1+N_ox)) {
-			s.Data[2*idx0][2] += complex(0.5*Eb,0);
-			s.Data[2*idx0+1][2] += complex(0.5*Eb,0);
-		} else if ((idx0 > N_fm) && (idx0 < N_fm+1+N_ox)) {
-			s.Data[2*idx0][2] += complex(Eb,0);
-			s.Data[2*idx0+1][2] += complex(Eb,0);
-		}
+	s.Data[2*N_fm][2] += complex(0.5*Eb,0);
+	s.Data[2*N_fm+1][2] += complex(0.5*Eb,0);
+	s.Data[2*(N_fm+N_ox+1)][2] += complex(0.5*Eb,0);
+	s.Data[2*(N_fm+N_ox)+3][2] += complex(0.5*Eb,0);
+	for idx0 := N_fm+1; idx0 < N_fm+1+N_ox; idx0++ {
+		s.Data[2*idx0][2] += complex(Eb,0);
+		s.Data[2*idx0+1][2] += complex(Eb,0);
 	}
 }
 
