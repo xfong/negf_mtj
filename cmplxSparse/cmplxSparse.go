@@ -5,6 +5,7 @@ package cmplxSparse
 import (
 	"errors"
 	"math"
+	"fmt"
 )
 
 // Sparse matrix data structure stores a matrix in Diagonal form, which is convenient
@@ -51,6 +52,30 @@ func AccessMatrix( m, n int, s *sparseMat ) complex128 {
 		idx0 := n-m+maxOffset
 		return s.Data[m][idx0]
 	}
+}
+
+// Function to print matrix to screen
+func PrintSparseMatrix( s *sparseMat ) {
+	matSize := len(s.Data);
+	if (matSize < 1) {
+		return;
+	}
+        matDiags := len(s.Data[0]);
+	fmt.Println("----------------------------------------");
+	if (matDiags == 1) {
+		fmt.Println("The matrix is 1 x 1 :");
+		fmt.Println(s.Data[0][0]);
+	} else {
+		fmt.Println("The matrix is", matSize, "x", matSize, ":");
+		for idx0 := 0; idx0 < matSize; idx0++ {
+			for idx1 := 0; idx1 < matSize; idx1++ {
+				dataValue := AccessMatrix(idx0, idx1, s);
+				fmt.Printf("%f    ",dataValue);
+			}
+			fmt.Printf("\n");
+		}
+	}	
+	fmt.Println("----------------------------------------");
 }
 
 // Function to initialize an identity matrix in Diagonal format

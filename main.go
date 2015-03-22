@@ -70,6 +70,7 @@ func main() {
     cmplxSparse.ScaleRangeSparseMatrixIP(2*(N_fm_L+N_ox), 2*(N_fm_L+N_ox)+1, 0, complex(t_ox, 0.0), Hamiltonian); // Interface of right FM contact with barrier
     cmplxSparse.ScaleRangeSparseMatrixIP(2*(N_fm_L+N_ox+1), 2*(N_fm_L+N_ox+N_fm_R)+3, 0, complex(t_fm_R, 0.0), Hamiltonian); // Right FM contact
 
+    cmplxSparse.PrintSparseMatrix(Hamiltonian);
 /*
     // Build the upper diagonal
     cmplxSparse.ScaleRangeSparseMatrixIP(0, N_fm_L-1, 2, complex(t_fm_L, 0.0), Hamiltonian);    
