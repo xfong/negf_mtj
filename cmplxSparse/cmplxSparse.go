@@ -178,6 +178,11 @@ func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *sparseMat ) *spars
 func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *sparseMat ) {
 	tmpLength := len(s.Data);
 	totalPts := tmpLength/2;
+	if ((N_fm >= totalPts) || (N_ox >= totalPts)) {
+		errors.New("ERROR: Indices are out of range!");
+	} else if ((N_fm < 0) || (N_ox < 0)) {
+		errors.New("ERROR: Indices cannot be negative!");
+	}
 	s.Data[2*N_fm][2] += complex(0.5*Eb,0);
 	s.Data[2*N_fm+1][2] += complex(0.5*Eb,0);
 	s.Data[2*(N_fm+N_ox+1)][2] += complex(0.5*Eb,0);

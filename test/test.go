@@ -3,7 +3,7 @@ package main
 
 import (
 	"fmt"
-	"cmplxSparse"
+	"github.com/negf_mtj/negf_mtj/cmplxSparse"
 )
 
 func main() {

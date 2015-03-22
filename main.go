@@ -25,25 +25,47 @@ var (
     aSpace			float64;
     d_ox, d_fm_L, d_fm_R	float64;
     Ub				float64;
-    E_split			float64;
+    E_split_L, E_split_R	float64;
     Vmtj			float64;
     th_F,ph_F			float64;
     th_H,ph_H			float64;
 );
 
 func main() {
-    fmt.Println(Pi)
-    fmt.Println(hplanck)
-    fmt.Println(hbar)
-    fmt.Println(echarge)
-    fmt.Println(mu0)
-    fmt.Println(muB)
-    fmt.Println(zplus)
-    fmt.Println(m0)
+    fmt.Println("Pi =", Pi)
+    fmt.Println("Planck constant =", hplanck)
+    fmt.Println("Reduced Planck constant =", hbar)
+    fmt.Println("Elementary charge =", echarge)
+    fmt.Println("Permeability of free space =", mu0)
+    fmt.Println("Bohr magneton =", muB)
+    fmt.Println("Small imaginary number =", zplus)
+    fmt.Println("Free electron mass =", m0)
 
-    m_ox := float64(0.315);
-    m_fm_L := float64(0.72);
-    m_fm_R := m_fm_L;
+    // Material parameters
+    m_ox = float64(0.315);
+    m_fm_L = float64(0.72);
+    m_fm_R = m_fm_L;
+
+    Ub = 0.79;
+    E_split_L = 0.930;
+    E_split_R = 0.930;
+
+    fmt.Println("----------------------------------------");
+    fmt.Printf("Ub = %g, E_split_L = %g, E_split_R = %g\n", Ub, E_split_L, E_split_R);
+
+    // Configuration parameters
+    th_F, ph_F = Pi/2.0, 0.0;    
+    th_H, ph_H = 0.0, 0.0;    
+
+    fmt.Println("----------------------------------------");
+    fmt.Println("Left FM:");
+    fmt.Printf("th = %g, ph = %g\n", th_F, ph_F);
+
+    fmt.Println("----------------------------------------");
+    fmt.Println("Right FM:")
+    fmt.Printf("th = %g, ph = %g\n", th_H, ph_H);
+    fmt.Println("----------------------------------------");
+
 /*
     aSpace := float64(1.0e-11);
     d_ox := float64(1.15e-9);
@@ -59,13 +81,17 @@ func main() {
     N_fm_R := int(d_fm_R/aSpace);
     N_ox := int(d_ox/aSpace) - 1;
     fmt.Printf("N_ox = %d, N_fm_L = %d, N_fm_R = %d\n",N_ox, N_fm_L, N_fm_R);
+    fmt.Println("----------------------------------------");
 
     t_base := hbar*hbar/2/echarge/m0/aSpace/aSpace;
     t_fm_L := t_base/m_fm_L;
     t_fm_R := t_base/m_fm_R;
     t_ox := t_base/m_ox;
+
+
     fmt.Printf("t_ox = %f, t_fm_L = %f, t_fm_R = %f\n",t_ox, t_fm_L, t_fm_R);
     fmt.Printf("2t_ox = %f, 2t_fm_L = %f, 2t_fm_R = %f\n",2*t_ox, 2*t_fm_L, 2*t_fm_R);
+    fmt.Println("----------------------------------------");
 
     // Initialize a base matrix template
     Hamiltonian := cmplxSparse.New();
@@ -90,6 +116,15 @@ func main() {
 
     // Include barrier
     cmplxSparse.AddBarrierProfile(N_fm_L, N_ox, Ub, Hamiltonian);
+
+    // Include band splitting to left FM contact
+    mx_, my_, mz_ := math.Sin(th_F)*math.Cos(ph_F), math.Sin(th_F)*math.Sin(ph_F), math.Cos(th_F);
+    Hamiltonian = cmplxSparse.AddBandSplitLeftFM(mx_, my_, mz_, E_split_L, N_fm_L, Hamiltonian);
+
+    // Include band splitting to right FM contact
+    mx_, my_, mz_ = math.Sin(th_H)*math.Cos(ph_H), math.Sin(th_H)*math.Sin(ph_H), math.Cos(th_H);
+    Hamiltonian = cmplxSparse.AddBandSplitRightFM(mx_, my_, mz_, E_split_R, N_fm_L, Hamiltonian);
+
     cmplxSparse.PrintSparseMatrix(Hamiltonian);
 
 }
