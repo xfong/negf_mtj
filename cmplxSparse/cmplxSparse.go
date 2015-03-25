@@ -299,3 +299,111 @@ func ScaleRangeSparseMatrixIP(startPtr, endPtr int, diagIdx int, A complex128, s
 	}
 }
 
+// Special function for accessing elements of sparse matrices
+// stored in Diagonal format
+func SparseDiagAccess( m, n int, s *sparseMat ) complex128 {
+	maxSize := len(s.Data);
+	if ((m >= maxSize) || (n >= maxSize)) {
+		errors.New("ERROR: Indices are out of range!");
+	} else if ((m < 0) || (n < 0)) {
+		errors.New("ERROR: Indices are negative!");
+	}
+	minIdx, maxIdx := 0, len(s.Data[0]) - 1
+	baseIdx := maxIdx/2;
+	offSet := n-m;
+	colIdx := baseIdx+offSet;
+	if ((colIdx < 0) || (colIdx > maxIdx)) {
+		return complex(0.0, 0.0);
+	} else {
+		return s.Data[m][colIdx]
+	}
+}
+
+// Function for executing Doolittle's algorithm to perform LU
+// factorization of sparse matrix stored in Diagonal format
+func SparseDiagLU(s *sparseMat) *sparseMat {
+	// Get indices for performing for loops...
+	maxSize := len(s.Data);
+	t := s;
+
+	// Handle small matrix sizes (up to 2 x 2)
+	if (maxSize == 1) {
+		return t;
+	} else if (maxSize == 2) {
+		if (s.Data[1][0] == complex(0.0,0.0)) {
+			return t;
+		} else {
+			t.Data[1][0] /= t.Data[1][0];
+			t.Data[1][1] -= t.Data[0][2]*t.Data[0][1]/t.Data[1][0];
+			return t; 
+		}
+	}
+	minMatIdx, maxMatIdx := 0, len(s.Data[0]) - 1
+	mainDiagIdx := maxMatIdx/2;
+
+	// For matrices 3x3 and larger
+
+	// The following has been optimized for the assumption that s.Data stores equal number of diagonals
+	// above and below the main diagonal. i.e., s.Data must have odd number of columns. The middle
+	// column are the entries for main diagonal. The n-th column to the left and right of the middle
+	// column are the n-th diagonal below and above the main diagonal, respectively.
+
+	// Scan down main diagonal...
+	var (
+		endIdx		int
+		topDiagIdx	int
+		t_num_R		float64
+		t_num_I		float64
+		t_num		float64
+		targRow		int
+		targCol		int
+	)
+	for diagIdx := 1; diagIdx < maxSize; diagIdx++ {
+
+		// First, calculate the column of the L matrix...
+
+		// Determine number of elements down the current column of the L matrix
+		// that needs to be calculated
+		endIdx = maxSize - diagIdx;
+		if mainDiagIdx < endIdx - 1 {
+			endIdx = mainDiagIdx;
+		}
+		topDiagIdx = diagIdx-1;
+		t_num_R, t_num_I = real(t.Data[topDiagIdx][topDiagIdx]), imag(t.Data[topDiagIdx][topDiagIdx]);
+		t_num = t_num_R*t_num_R + t_num_I*t_num_I;
+
+		for LColIdx := 1; LColIdx < endIdx; LColIdx++ {
+			targRow = diagIdx - LColIdx;
+			targCol = mainDiagIdx - LColIdx;
+
+			// Only scan leftwards of L row if there are non-zero entries to the left of
+			// current entry of L matrix
+			if ((diagIdx > 1) && (targCol > 0)) {
+				for colIdx := 1; colIdx < LColIdx; colIdx++ {
+					t.[targRow][targCol] -= t.[targRow][targCol-colIdx]*t[targRow+1+colIdx][targCol-1-colIdx];
+				}
+			}
+
+			// After subtracting, divide by the corresponding element on main diagonal of
+			// U matrix
+			t.[targRow][targCol] *= complex(t_num_R,-1.0*t_num_I)/t_num;
+		}
+
+		// After calculating the column of L matrix, we can move on to
+		// calculate the row of the U matrix...
+
+		for currColIdx := mainDiag; currColIdx < mainDiag + endIdx; currColIdx++ {
+			totalRight := maxMatIdx + 1 - currColIdx;
+			RowScanEndIdx := diagIdx;
+			if (totalRight < RowScanEndIdx) {
+				RowScanEndIdx = totalRight;
+			}
+			if (RowScanEndIdx > 0)
+			for scanIdx := 0; scanIdx < RowScanEnd; scanIdx++ {
+				t.Data[diagIdx][currColIdx] -= t.Data[diagIdx+1+scanIdx][currColIdx-1-scanIdx]*t.Data[diagIdx][mainDiagIdx-1-scanIdx];
+			}
+		}
+	}
+
+	return t;
+}
