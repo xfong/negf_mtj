@@ -343,12 +343,6 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 
 	// For matrices 3x3 and larger
 
-	// The following has been optimized for the assumption that s.Data stores equal number of diagonals
-	// above and below the main diagonal. i.e., s.Data must have odd number of columns. The middle
-	// column are the entries for main diagonal. The n-th column to the left and right of the middle
-	// column are the n-th diagonal below and above the main diagonal, respectively.
-
-	// Scan down main diagonal...
 	var (
 		endIdx		int
 		topDiagIdx	int
@@ -358,6 +352,13 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 		targRow		int
 		targCol		int
 	)
+
+	// The following has been optimized for the assumption that s.Data stores equal number of diagonals
+	// above and below the main diagonal. i.e., s.Data must have odd number of columns. The middle
+	// column are the entries for main diagonal. The n-th column to the left and right of the middle
+	// column are the n-th diagonal below and above the main diagonal, respectively.
+
+	// Scan down main diagonal...
 	for diagIdx := 1; diagIdx < maxSize; diagIdx++ {
 
 		// First, calculate the column of the L matrix...
@@ -365,22 +366,22 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 		// Determine number of elements down the current column of the L matrix
 		// that needs to be calculated
 		endIdx = maxSize - diagIdx;
-		if mainDiagIdx < endIdx - 1 {
+		if (mainDiagIdx < endIdx) {
 			endIdx = mainDiagIdx;
 		}
 		topDiagIdx = diagIdx-1;
-		t_num_R, t_num_I = real(t.Data[topDiagIdx][topDiagIdx]), imag(t.Data[topDiagIdx][topDiagIdx]);
+		t_num_R, t_num_I = real(t.Data[topDiagIdx][mainDiagIdx]), imag(t.Data[topDiagIdx][mainDiagIdx]);
 		t_num = t_num_R*t_num_R + t_num_I*t_num_I;
 
-		for LColIdx := 1; LColIdx < endIdx; LColIdx++ {
-			targRow = diagIdx - LColIdx;
+		for LColIdx := 1; LColIdx <= endIdx; LColIdx++ {
+			targRow = topDiagIdx + LColIdx;
 			targCol = mainDiagIdx - LColIdx;
 
 			// Only scan leftwards of L row if there are non-zero entries to the left of
 			// current entry of L matrix
 			if ((diagIdx > 1) && (targCol > 0)) {
 				for colIdx := 1; colIdx < LColIdx; colIdx++ {
-					t.Data[targRow][targCol] -= t.Data[targRow][targCol-colIdx]*t.Data[targRow+1+colIdx][targCol-1-colIdx];
+					t.Data[targRow][targCol] -= t.Data[targRow][targCol-colIdx]*t.Data[targRow-1-colIdx][targCol+1+colIdx];
 				}
 			}
 
@@ -393,14 +394,14 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 		// calculate the row of the U matrix...
 
 		for currColIdx := mainDiagIdx; currColIdx < mainDiagIdx + endIdx; currColIdx++ {
-			totalRight := maxMatIdx + 1 - currColIdx;
+			totalRight := maxMatIdx - currColIdx;
 			RowScanEndIdx := diagIdx;
 			if (totalRight < RowScanEndIdx) {
 				RowScanEndIdx = totalRight;
 			}
 			if (RowScanEndIdx > 0) {
-				for scanIdx := 0; scanIdx < RowScanEndIdx; scanIdx++ {
-					t.Data[diagIdx][currColIdx] -= t.Data[diagIdx+1+scanIdx][currColIdx-1-scanIdx]*t.Data[diagIdx][mainDiagIdx-1-scanIdx];
+				for scanIdx := 1; scanIdx <= RowScanEndIdx; scanIdx++ {
+					t.Data[diagIdx][currColIdx] -= t.Data[diagIdx-scanIdx][currColIdx+scanIdx]*t.Data[diagIdx][mainDiagIdx-scanIdx];
 				}
 			}
 		}
