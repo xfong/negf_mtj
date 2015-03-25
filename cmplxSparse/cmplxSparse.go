@@ -308,7 +308,7 @@ func SparseDiagAccess( m, n int, s *sparseMat ) complex128 {
 	} else if ((m < 0) || (n < 0)) {
 		errors.New("ERROR: Indices are negative!");
 	}
-	minIdx, maxIdx := 0, len(s.Data[0]) - 1
+	maxIdx := len(s.Data[0]) - 1
 	baseIdx := maxIdx/2;
 	offSet := n-m;
 	colIdx := baseIdx+offSet;
@@ -338,7 +338,7 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 			return t; 
 		}
 	}
-	minMatIdx, maxMatIdx := 0, len(s.Data[0]) - 1
+	maxMatIdx := len(s.Data[0]) - 1
 	mainDiagIdx := maxMatIdx/2;
 
 	// For matrices 3x3 and larger
@@ -380,27 +380,28 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 			// current entry of L matrix
 			if ((diagIdx > 1) && (targCol > 0)) {
 				for colIdx := 1; colIdx < LColIdx; colIdx++ {
-					t.[targRow][targCol] -= t.[targRow][targCol-colIdx]*t[targRow+1+colIdx][targCol-1-colIdx];
+					t.Data[targRow][targCol] -= t.Data[targRow][targCol-colIdx]*t.Data[targRow+1+colIdx][targCol-1-colIdx];
 				}
 			}
 
 			// After subtracting, divide by the corresponding element on main diagonal of
 			// U matrix
-			t.[targRow][targCol] *= complex(t_num_R,-1.0*t_num_I)/t_num;
+			t.Data[targRow][targCol] *= complex(t_num_R/t_num, -1.0*t_num_I/t_num);
 		}
 
 		// After calculating the column of L matrix, we can move on to
 		// calculate the row of the U matrix...
 
-		for currColIdx := mainDiag; currColIdx < mainDiag + endIdx; currColIdx++ {
+		for currColIdx := mainDiagIdx; currColIdx < mainDiagIdx + endIdx; currColIdx++ {
 			totalRight := maxMatIdx + 1 - currColIdx;
 			RowScanEndIdx := diagIdx;
 			if (totalRight < RowScanEndIdx) {
 				RowScanEndIdx = totalRight;
 			}
-			if (RowScanEndIdx > 0)
-			for scanIdx := 0; scanIdx < RowScanEnd; scanIdx++ {
-				t.Data[diagIdx][currColIdx] -= t.Data[diagIdx+1+scanIdx][currColIdx-1-scanIdx]*t.Data[diagIdx][mainDiagIdx-1-scanIdx];
+			if (RowScanEndIdx > 0) {
+				for scanIdx := 0; scanIdx < RowScanEndIdx; scanIdx++ {
+					t.Data[diagIdx][currColIdx] -= t.Data[diagIdx+1+scanIdx][currColIdx-1-scanIdx]*t.Data[diagIdx][mainDiagIdx-1-scanIdx];
+				}
 			}
 		}
 	}
