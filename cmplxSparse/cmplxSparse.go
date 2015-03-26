@@ -409,3 +409,54 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 
 	return t;
 }
+
+// Function to solvee A*x = b, where sparse matrix stored in diagonal format
+func SparseDiagInv(A *sparseMat, b []complex128) []complex128 {
+	MatrixSize, VectorSize := len(A.Data), len(b);
+	if (MatrixSize != VectorSize) {
+		errors.New("ERROR: Mismatch between matrix size and vector length!");
+	}
+
+	// Find LU factorization of A first
+	LU_A := SparseDiagLU(A);
+
+	// Use back substitution to determine x:
+	// First solve L*y = b using back substitution. Then, solve U*x = y.
+
+	// Create variables for indexing
+	numMatCols := len(A.Data[0]);
+	mainDiagIdx := (numMatCols - 1)/2;
+	var (
+		idx0, loopCnt, offSetIdx		int
+	)
+
+	// Use buffer to store result
+	x := b;
+
+	for idx0 = 1; idx0 < MatrixSize; idx0++ {
+		loopCnt = idx0;
+		if (mainDiagIdx < idx0) {
+			loopCnt = mainDiagIdx;
+		}
+
+		for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
+			x[idx0] -= x[(idx0-offSetIdx)]*LU_A.Data[idx0][(mainDiagIdx-offSetIdx)];
+		}
+	}
+
+	for idx0 = 0; idx0 < MatrixSize; idx0++ {
+		if (idx0 > 1) {
+			loopCnt = idx0;
+			if (mainDiagIdx < loopCnt) {
+				loopCnt = mainDiagIdx;
+			}
+			for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
+				x[idx0] -= x[(idx0+offSetIdx)] * LU_A.Data[idx0][(mainDiagIdx+offSetIdx)];
+			}
+			t_num_R, t_num_I := real(LU_A.Data[idx0][mainDiagIdx]), imag(LU_A.Data[idx0][mainDiagIdx]);
+			t_num := t_num_R*t_num_R + t_num_I*t_num_I;
+			x[idx0] *= complex(t_num_R/t_num, -1.0*t_num_I/t_num); 
+		}
+	}
+	return x;
+}

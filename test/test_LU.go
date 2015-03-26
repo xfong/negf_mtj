@@ -22,6 +22,9 @@ func testLU( n int ) {
         matrixSize := int(2*n);
         fmt.Println("Making sparse ",matrixSize,"x",matrixSize," Hamiltonian tridiagonal matrix\n");
         cmplxSparse.MakeHamTriDiag(n, tmp);
+	for idx0 := 0; idx0 < matrixSize; idx0++ {
+		tmp.Data[idx0][2] -= complex(0.0,5.0);
+	}
 
 	LU_mat := cmplxSparse.SparseDiagLU(tmp);
         fmt.Println("Accessing matrix elements (m,n):");
