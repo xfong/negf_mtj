@@ -11,6 +11,7 @@ import (
 
 var (
     Pi		= float64(4.0)*math.Atan(1.0);
+    k_B		= float64(1.3806488e-23);
     hplanck	= float64(6.62606957e-34);
     hbar	= hplanck/2.0/Pi;
     echarge	= float64(1.60217657e-19);
@@ -18,7 +19,8 @@ var (
     muB		= float64(9.27400968e-24);
     zplus	= complex128(cmplx.Sqrt(-1.0)*1e-9);
     m0		= float64(9.10938291e-31);
-)
+    k_q		= k_B / echarge;
+);
 
 var (
     m_ox, m_fm_L, m_fm_R	float64;
@@ -127,4 +129,9 @@ func main() {
 
     cmplxSparse.PrintSparseMatrix(Hamiltonian);
 
+}
+
+// Function for calculating the Fermi energy
+func FermiEnergy( E_F, mu_pot, Temperature float64 ) float64 {
+    return 1.0 / (1+math.Exp((E_F - mu_pot) / (k_q*Temperature)));
 }

@@ -5,6 +5,7 @@ package cmplxSparse
 import (
 	"errors"
 	"math"
+	"math/cmplx"
 	"fmt"
 )
 
@@ -155,7 +156,7 @@ func SparseDiagAdd(s, t *sparseMat) *sparseMat {
 	} else {
 		// u is storing t
 	}
-	for idx0 := 0; idx0 < SSize; idx0++ {
+	for idx0 := 0; idx0 < Ssize; idx0++ {
 		// Calculate the main diagonal first
 		if (flag0 == 0) {
 			// u is storing s
@@ -527,12 +528,12 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 }
 
 // Function to compute basis transformation matrix
-func BasisTransform(th, phi float64) [2][4]complex128 {
+func BasisTransform(th, phi float64) *[2][2][2]complex128 {
 
 	BTMatrix := new([2][2][2]complex128);
-	th_2, ph_2 := 0.5*th, 0.5*phi;
-	csn := cmplx.Cos(th_2) * cmplx.Exp(complex(0.0, -1.0*phi_2));
-	sn  := cmplx.Sin(th_2) * cmplx.Exp(complex(0.0, phi_2));
+	th_2, phi_2 := 0.5*th, 0.5*phi;
+	csn := complex(math.Cos(th_2), 0.0) * cmplx.Exp(complex(0.0, -1.0*phi_2));
+	sn  := complex(math.Sin(th_2), 0.0) * cmplx.Exp(complex(0.0, phi_2));
 
 	BTMatrix[1][0][0] = cmplx.Conj(csn);
 	BTMatrix[1][0][1] = cmplx.Conj(sn);
