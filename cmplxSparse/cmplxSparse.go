@@ -528,22 +528,17 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 }
 
 // Function to compute basis transformation matrix
-func BasisTransform(th, phi float64) *[2][2][2]complex128 {
+func BasisTransform(th, phi float64) *[2][2]complex128 {
 
-	BTMatrix := new([2][2][2]complex128);
+	BTMatrix := new([2][2]complex128);
 	th_2, phi_2 := 0.5*th, 0.5*phi;
 	csn := complex(math.Cos(th_2), 0.0) * cmplx.Exp(complex(0.0, -1.0*phi_2));
 	sn  := complex(math.Sin(th_2), 0.0) * cmplx.Exp(complex(0.0, phi_2));
 
-	BTMatrix[1][0][0] = cmplx.Conj(csn);
-	BTMatrix[1][0][1] = cmplx.Conj(sn);
-	BTMatrix[1][1][0] = complex(-1.0, 0.0)*sn;
-	BTMatrix[1][1][1] = csn;
-
-	BTMatrix[0][0][0] = csn;
-	BTMatrix[0][0][1] = cmplx.Conj(BTMatrix[1][1][0]);
-	BTMatrix[0][1][0] = cmplx.Conj(BTMatrix[1][0][1]);
-	BTMatrix[0][1][1] = BTMatrix[1][0][0];
+	BTMatrix[0][0] = cmplx.Conj(csn);
+	BTMatrix[0][1] = cmplx.Conj(sn);
+	BTMatrix[1][0] = complex(-1.0, 0.0)*sn;
+	BTMatrix[1][1] = csn;
 
 	return BTMatrix;
 }
