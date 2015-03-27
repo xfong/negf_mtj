@@ -131,6 +131,71 @@ func MakeHamTriDiag( grdSize int, s *sparseMat ) {
 	}
 }
 
+// Function for adding two sparse matrices stored in diagonal format
+func SparseDiagAdd(s, t *sparseMat) *sparseMat {
+	Ssize, Tsize := len(s.Data), len(t.Data);
+	if (Ssize != Tsize) {
+		errors.New("ERROR: cannot add matrices of different sizes!");
+	}
+
+	mainDiagIdxS, mainDiagIdxT := (len(s.Data[0]) - 1)/2, (len(t.Data[0]) - 1)/2;
+
+	u := t;
+	flag0 := 1;
+	sweepIdx := mainDiagIdxS;
+
+	if (mainDiagIdxT < mainDiagIdxS) {
+		u = s;
+		flag0 = 0;
+		sweepIdx = mainDiagIdxT;
+	}
+
+	if (flag0 == 0) {
+		// u is storing s
+	} else {
+		// u is storing t
+	}
+	for idx0 := 0; idx0 < SSize; idx0++ {
+		// Calculate the main diagonal first
+		if (flag0 == 0) {
+			// u is storing s
+			u.Data[idx0][mainDiagIdxS] += t.Data[idx0][mainDiagIdxT];
+		} else {
+			// u is storing t
+			u.Data[idx0][mainDiagIdxT] += t.Data[idx0][mainDiagIdxS];
+		}
+		// Calculate the off-diagonal terms
+		termIdx := idx0;
+		if (sweepIdx < termIdx) {
+			termIdx = sweepIdx;
+		}
+		for idx1 := 1; idx1 < termIdx; idx1++ {
+			if (flag0 == 0) {
+				// u is storing s
+				u.Data[idx0][mainDiagIdxS - idx1] += t.Data[idx0][mainDiagIdxT - idx1];
+			} else {
+				// u is storing t
+				u.Data[idx0][mainDiagIdxT - idx1] += t.Data[idx0][mainDiagIdxS - idx1];
+			}
+		}
+	}
+
+	return u;
+}
+
+// Function for scaled sparse matrix (t) to another sparse matrix (s), both stored in diagonal format
+func SparseDiagMAdd(mult complex128, s, t *sparseMat) *sparseMat {
+	Ssize, Tsize := len(s.Data), len(t.Data);
+	if (Ssize != Tsize) {
+		errors.New("ERROR: cannot add matrices of different sizes!");
+	}
+
+	u := t;
+	ScaleSparseMatrixIP(mult, u);
+	u = SparseDiagAdd(s,u);
+	return u;
+}
+
 // Function for scalar multiplication of sparse matrix
 func ScaleSparseMatrix(A complex128, B *sparseMat) *sparseMat {
 	s := B;
@@ -411,7 +476,7 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 }
 
 // Function to solvee A*x = b, where sparse matrix stored in diagonal format
-func SparseDiagInv(A *sparseMat, b []complex128) []complex128 {
+func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 	MatrixSize, VectorSize := len(A.Data), len(b);
 	if (MatrixSize != VectorSize) {
 		errors.New("ERROR: Mismatch between matrix size and vector length!");
@@ -460,3 +525,59 @@ func SparseDiagInv(A *sparseMat, b []complex128) []complex128 {
 	}
 	return x;
 }
+
+// Function to compute basis transformation matrix
+func BasisTransform(th, phi float64) [2][4]complex128 {
+
+	BTMatrix := new([2][2][2]complex128);
+	th_2, ph_2 := 0.5*th, 0.5*phi;
+	csn := cmplx.Cos(th_2) * cmplx.Exp(complex(0.0, -1.0*phi_2));
+	sn  := cmplx.Sin(th_2) * cmplx.Exp(complex(0.0, phi_2));
+
+	BTMatrix[1][0][0] = cmplx.Conj(csn);
+	BTMatrix[1][0][1] = cmplx.Conj(sn);
+	BTMatrix[1][1][0] = complex(-1.0, 0.0)*sn;
+	BTMatrix[1][1][1] = csn;
+
+	BTMatrix[0][0][0] = csn;
+	BTMatrix[0][0][1] = cmplx.Conj(BTMatrix[1][1][0]);
+	BTMatrix[0][1][0] = cmplx.Conj(BTMatrix[1][0][1]);
+	BTMatrix[0][1][1] = BTMatrix[1][0][0];
+
+	return BTMatrix;
+}
+
+// Function to obtain complex conjugate (dagger operation) of
+// sparse matrix stored in diagonal form
+func SparseDiagDagger(s *sparseMat) *sparseMat {
+
+	// Initiaize variables for indexing purposes
+	matSize := len(s.Data);
+	numDiags := len(s.Data[0]);
+	mainDiagIdx := (numDiags-1)/2;
+
+	// Initialize output variable
+	t := s;
+
+	for idx0 := 0; idx0 < matSize; idx0++ {
+		// Complex conjugate main diagonal
+		t.Data[idx0][mainDiagIdx] = cmplx.Conj(t.Data[idx0][mainDiagIdx]);
+
+		// When there are more than one diagonal stored, and if we are not in the top left most entry,
+		// we will need to swap rows and columns, and complex conjugate those entries as well.
+
+		if ((idx0 > 1) && (mainDiagIdx > 0)) {
+			loopIdx := mainDiagIdx;
+			if (idx0 < loopIdx) {
+				loopIdx = idx0;
+			}
+			for idx1 := 1; idx1 < loopIdx; idx1++ {
+				// Swap row and columns, and conjugate those entries
+				t.Data[idx0][mainDiagIdx-idx1], t.Data[idx0-idx1][mainDiagIdx+idx1] = cmplx.Conj(t.Data[idx0-idx1][mainDiagIdx+idx1]), cmplx.Conj(t.Data[idx0][mainDiagIdx-idx1]);
+			}
+		}
+	}
+
+	return t;
+}
+
