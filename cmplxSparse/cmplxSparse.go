@@ -259,6 +259,45 @@ func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *sparseMat ) {
 	}
 }
 
+// Function for adding barrier potential profile to Hamiltonian
+func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, s *sparseMat ) {
+	tmpLength := len(s.Data);
+	totalPts := tmpLength/2;
+	if ((N_fmL >= totalPts) || (N_ox >= totalPts) || (N_fmR >= totalPts)) {
+		errors.New("ERROR: Indices are out of range!");
+	} else if ((N_fmL < 0) || (N_ox < 0) || (N_fmR < 0)) {
+		errors.New("ERROR: Indices cannot be negative!");
+	}
+    mainDiagIdx := (len(s.Data[0]) - 1)/2;
+    E_modeOx := m_fmL / m_ox * E_mode;
+    E_modeFm := m_fmL / m_fmR * E_mode;
+
+    // Adjustment for sites corresponding to left FM
+    for idx0 := 0; idx0 < N_fmL; idx0++ {
+        s.Data[2*idx0][mainDiagIdx] += complex(E_mode, 0.0);
+        s.Data[2*idx0+1][mainDiagIdx] += complex(E_mode, 0.0);
+    }
+
+    // Adjustment for sites corresponding to interface between left FM and oxide
+    s.Data[2*N_fmL][mainDiagIdx] += complex(0.5*(E_mode+E_modeOx), 0.0);
+    s.Data[2*N_fmL+1][mainDiagIdx] += complex(0.5*(E_mode+E_modeOx), 0.0);
+
+    // Adjustment for oxide sites
+    for idx0 := N_fmL+1; idx0 < N_fmL+N_ox+1; idx0++ {
+        s.Data[2*idx0][mainDiagIdx] += complex(E_modeOx, 0.0);
+        s.Data[2*idx0+1][mainDiagIdx] += complex(E_modeOx, 0.0);
+    }
+
+    // Adjustment for sites corresponding to interface between right FM and oxide
+    s.Data[2*(N_fmL+N_ox)+2][mainDiagIdx] += complex(0.5*(E_modeFm+E_modeOx), 0.0);
+    s.Data[2*(N_fmL+N_ox)+3][mainDiagIdx] += complex(0.5*(E_modeFm+E_modeOx), 0.0);
+
+    for idx0 := N_fmL+N_ox+1; idx0 < totalPts; idx0++ {
+        s.Data[2*idx0][mainDiagIdx] += complex(E_modeFm, 0.0);
+        s.Data[2*idx0+1][mainDiagIdx] += complex(E_modeFm, 0.0);
+    }
+}
+
 // Function for adding band splitting for up-spin and down-spin conduction bands on left contact
 func AddBandSplitLeftFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *sparseMat {
 	Mnorm := mx*mx + my*my + mz*mz;

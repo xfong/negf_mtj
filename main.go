@@ -161,3 +161,18 @@ func SelfEnergyEntries(currEnergy, modeEnergy, t0, delta0, delta1, potential, th
 
     return s;
 }
+
+/*
+func NEGF_ModeIntegSetup(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, Hamiltonian *sparseMat) *[4]float64 {
+    // Initialize return value
+    t := make([]float64,4);
+
+    mu1, mu2 := E_Fermi + 0.5*V_MTJ, E_Fermi - 0.5*V_MTJ;
+    f1, f2 := FermiEnergy(E_Fermi, mu1, Temperature), FermiEnergy(E_Fermi, mu2, Temperature);
+    f1_prime, f2_prime := 1.0 - f1, 1.0 - f2;
+
+    t = NEGF_SubEnergy( cmplxSparse.AddModeEnergy(E_mode, N_fmL, m_fmL, N_ox, m_ox, N_fmR, m_fmR, cmplxSparse.AddVoltagePotential(N_fmL, N_ox, V_MTJ, Hamiltonian)));
+    // Return result
+    return t;
+}
+*/
