@@ -5,7 +5,6 @@ package cmplxSparse
 import (
 	"errors"
 	"math"
-	"math/cmplx"
 	"fmt"
 )
 
@@ -102,15 +101,15 @@ func MakeTriDiag ( matSize int, s *sparseMat ) {
 	for idx0 := 0; idx0 < matSize; idx0++ {
 		if (matSize == 1) {
 			s.Data[idx0] = make([]complex128,1);
-			s.Data[idx0][0] = 2.0;
+			s.Data[idx0][0] = -2.0;
 		} else {
 			s.Data[idx0] = make([]complex128,3);
 			if (idx0 == 0) {
-				s.Data[idx0][0],s.Data[idx0][1],s.Data[idx0][2] =  0.0, 2.0, -1.0;
+				s.Data[idx0][0],s.Data[idx0][1],s.Data[idx0][2] =  0.0, -2.0, 1.0;
 			} else if (idx0 == matSize - 1) {
-				s.Data[idx0][0],s.Data[idx0][1],s.Data[idx0][2] = -1.0, 2.0,  0.0;
+				s.Data[idx0][0],s.Data[idx0][1],s.Data[idx0][2] =  1.0, -2.0, 0.0;
 			} else {
-				s.Data[idx0][0],s.Data[idx0][1],s.Data[idx0][2] = -1.0, 2.0, -1.0;
+				s.Data[idx0][0],s.Data[idx0][1],s.Data[idx0][2] =  1.0, -2.0, 1.0;
 			}
 		}
 	}
@@ -124,7 +123,7 @@ func MakeHamTriDiag( grdSize int, s *sparseMat ) {
 	s.Data = make([][]complex128, 2*grdSize);
 	for idx0 := 0; idx0 < 2*grdSize; idx0++ {
 		s.Data[idx0] = make([]complex128,5);
-		s.Data[idx0][0], s.Data[idx0][1], s.Data[idx0][2], s.Data[idx0][3], s.Data[idx0][4] = -1.0, 0.0, 2.0, 0.0, -1.0;
+		s.Data[idx0][0], s.Data[idx0][1], s.Data[idx0][2], s.Data[idx0][3], s.Data[idx0][4] = 1.0, 0.0, -2.0, 0.0, 1.0;
 	}
 	for idx0 := 0; idx0 < 2; idx0++ {
 		offSet := 2*grdSize-1-idx0;
@@ -156,7 +155,7 @@ func SparseDiagAdd(s, t *sparseMat) *sparseMat {
 	} else {
 		// u is storing t
 	}
-	for idx0 := 0; idx0 < Ssize; idx0++ {
+	for idx0 := 0; idx0 < SSize; idx0++ {
 		// Calculate the main diagonal first
 		if (flag0 == 0) {
 			// u is storing s
@@ -528,17 +527,22 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 }
 
 // Function to compute basis transformation matrix
-func BasisTransform(th, phi float64) *[2][2]complex128 {
+func BasisTransform(th, phi float64) [2][4]complex128 {
 
-	BTMatrix := new([2][2]complex128);
-	th_2, phi_2 := 0.5*th, 0.5*phi;
-	csn := complex(math.Cos(th_2), 0.0) * cmplx.Exp(complex(0.0, -1.0*phi_2));
-	sn  := complex(math.Sin(th_2), 0.0) * cmplx.Exp(complex(0.0, phi_2));
+	BTMatrix := new([2][2][2]complex128);
+	th_2, ph_2 := 0.5*th, 0.5*phi;
+	csn := cmplx.Cos(th_2) * cmplx.Exp(complex(0.0, -1.0*phi_2));
+	sn  := cmplx.Sin(th_2) * cmplx.Exp(complex(0.0, phi_2));
 
-	BTMatrix[0][0] = cmplx.Conj(csn);
-	BTMatrix[0][1] = cmplx.Conj(sn);
-	BTMatrix[1][0] = complex(-1.0, 0.0)*sn;
-	BTMatrix[1][1] = csn;
+	BTMatrix[1][0][0] = cmplx.Conj(csn);
+	BTMatrix[1][0][1] = cmplx.Conj(sn);
+	BTMatrix[1][1][0] = complex(-1.0, 0.0)*sn;
+	BTMatrix[1][1][1] = csn;
+
+	BTMatrix[0][0][0] = csn;
+	BTMatrix[0][0][1] = cmplx.Conj(BTMatrix[1][1][0]);
+	BTMatrix[0][1][0] = cmplx.Conj(BTMatrix[1][0][1]);
+	BTMatrix[0][1][1] = BTMatrix[1][0][0];
 
 	return BTMatrix;
 }
