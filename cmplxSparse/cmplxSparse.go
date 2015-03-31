@@ -515,7 +515,7 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 	return t;
 }
 
-// Function to solvee A*x = b, where sparse matrix stored in diagonal format
+// Function to solve A*x = b, where sparse matrix stored in diagonal format
 func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 	MatrixSize, VectorSize := len(A.Data), len(b);
 	if (MatrixSize != VectorSize) {
@@ -530,6 +530,55 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 
 	// Create variables for indexing
 	numMatCols := len(A.Data[0]);
+	mainDiagIdx := (numMatCols - 1)/2;
+	var (
+		idx0, loopCnt, offSetIdx		int
+	)
+
+	// Use buffer to store result
+	x := b;
+
+	for idx0 = 1; idx0 < MatrixSize; idx0++ {
+		loopCnt = idx0;
+		if (mainDiagIdx < idx0) {
+			loopCnt = mainDiagIdx;
+		}
+
+		for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
+			x[idx0] -= x[(idx0-offSetIdx)]*LU_A.Data[idx0][(mainDiagIdx-offSetIdx)];
+		}
+	}
+
+	for idx0 = 0; idx0 < MatrixSize; idx0++ {
+		if (idx0 > 1) {
+			loopCnt = idx0;
+			if (mainDiagIdx < loopCnt) {
+				loopCnt = mainDiagIdx;
+			}
+			for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
+				x[idx0] -= x[(idx0+offSetIdx)] * LU_A.Data[idx0][(mainDiagIdx+offSetIdx)];
+			}
+			t_num_R, t_num_I := real(LU_A.Data[idx0][mainDiagIdx]), imag(LU_A.Data[idx0][mainDiagIdx]);
+			t_num := t_num_R*t_num_R + t_num_I*t_num_I;
+			x[idx0] *= complex(t_num_R/t_num, -1.0*t_num_I/t_num); 
+		}
+	}
+	return x;
+}
+
+// Function to solve A*x = b, where sparse matrix stored in diagonal format. This function assumes
+// that A is the factorized version of the actual matrix.
+func SparseDiagLinearSolverMin(LU_A *sparseMat, b []complex128) []complex128 {
+	MatrixSize, VectorSize := len(LU_A.Data), len(b);
+	if (MatrixSize != VectorSize) {
+		errors.New("ERROR: Mismatch between matrix size and vector length!");
+	}
+
+	// Use back substitution to determine x:
+	// First solve L*y = b using back substitution. Then, solve U*x = y.
+
+	// Create variables for indexing
+	numMatCols := len(LU_A.Data[0]);
 	mainDiagIdx := (numMatCols - 1)/2;
 	var (
 		idx0, loopCnt, offSetIdx		int
@@ -614,5 +663,72 @@ func SparseDiagDagger(s *sparseMat) *sparseMat {
 	}
 
 	return t;
+}
+
+func CalcGreensFunc(Energy, zplus float64, Hamiltonian *sparseMat) [][]complex128 {
+
+    // At this point, Hamiltonian should consist of applied potential profile, self-energies
+    // of the left and right contacts, as well as the barrier height. To obtain G, we start
+    // with the LU factorization of the combined Hamiltonian and energy matrices.
+
+    MatrixSize := len(Hamiltonian.Data);
+    MainDiagIdx := (len(Hamiltonian.Data[0]) - 1) / 2;
+    InvGMatrix := Hamiltonian;
+
+    // Initialize buffer memory to save calculated column of Green's Function Matrix.
+    // We are exploiting the fact that we do not need to save the entire matrix so as
+    // to save on memory.
+    SolveBuffer := make([]complex128, MatrixSize);
+    SolveVector := make([]complex128, MatrixSize);
+
+    // Initialize memory to save Green's Function Matrix.
+    // The first index addresses the column, whereas the second index
+    // addresses the row.
+    GMatrix := make([][]complex128, MatrixSize);
+    for idx0 := 0; idx0 < MatrixSize; idx0++ {
+        // Initialize memory for storing every row/column. Note that only the two rows and
+        // columns at the edges of the matrix need to be stored due to multiplication with
+        // sig_in and sig_out, which will only have non-zero entries at the top left or
+        // bottom right corners of the matrix.
+        if ((idx0 < 2) || (idx0 > (MatrixSize - 3))) {
+            GMatrix[idx0] = make([]complex128, 4);
+        } else {
+            GMatrix[idx0] = make([]complex128, MatrixSize);
+        }
+
+        // Since we are already looping over the matrix index, we might as well add the energy
+        // to the diagonal element of the matrix inverse of the Green's matrix.
+        InvGMatrix.Data[idx0][MainDiagIdx] += complex(Energy, zplus);
+
+        // Zero the entries of the buffer
+        SolveVector[idx0] = complex(0.0, 0.0);
+    }
+
+    // Perform LU factorization of the matrix first
+    InvGMatrix = SparseDiagLU(InvGMatrix);
+
+    // We can save on some operations post-LU factorization by adjusting the b vector in
+    // A*x = b as we solve for x using the SparseDiagLinearSolverMin function. We may then
+    // store the solution directly to GMatrix.
+    for idx0 := 0; idx0 < MatrixSize; idx0++ {
+        if (idx0 > 0) {
+            SolveVector[idx0-1] = complex(0.0, 0.0);
+        }
+        SolveVector[idx0] = complex(1.0, 0.0);
+        SolveBuffer = SparseDiagLinearSolverMin(InvGMatrix, SolveVector);
+        if ((idx0 > 1) && (idx0 < MatrixSize - 2)) {
+            GMatrix[idx0][0] = SolveBuffer[0];
+            GMatrix[idx0][1] = SolveBuffer[1];
+            GMatrix[idx0][2] = SolveBuffer[MatrixSize-2];
+            GMatrix[idx0][3] = SolveBuffer[MatrixSize-1];
+        } else {
+            for idx1 := 0; idx1 < MatrixSize; idx1 ++ {
+                GMatrix[idx0][idx1] = SolveBuffer[idx1];
+            }
+        }
+    }
+    // By the end of the above loop, the Green's function matrix is computed and stored as it's
+    // transpose form.
+    return GMatrix;
 }
 

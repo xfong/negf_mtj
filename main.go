@@ -17,7 +17,7 @@ var (
     echarge	= float64(1.60217657e-19);
     mu0		= Pi*4.0e-7;
     muB		= float64(9.27400968e-24);
-    zplus	= complex128(cmplx.Sqrt(-1.0)*1e-9);
+    zplus	= 1e-9;
     m0		= float64(9.10938291e-31);
     k_q		= k_B / echarge;
 );
@@ -140,13 +140,13 @@ func FermiEnergy( E_F, mu_pot, Temperature float64 ) float64 {
 func SelfEnergyEntries(currEnergy, modeEnergy, t0, delta0, delta1, potential, th, ph float64) *[2][2]complex128 {
     s := new([2][2]complex128);
 
-    SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, 0.0) + zplus;
+    SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, zplus);
     SumEnergy /= complex(-2.0 * t0, 0.0);
     SumEnergy += complex(1.0, 0.0);
 
     sig_uu := complex(-1.0 * t0,0.0) * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
 
-    SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, 0.0) + zplus;
+    SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, zplus);
     SumEnergy /= complex(-2.0 * t0, 0.0);
     SumEnergy += complex(1.0, 0.0);
 
@@ -171,7 +171,7 @@ func NEGF_ModeIntegSetup(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR
     f1, f2 := FermiEnergy(E_Fermi, mu1, Temperature), FermiEnergy(E_Fermi, mu2, Temperature);
     f1_prime, f2_prime := 1.0 - f1, 1.0 - f2;
 
-    t = NEGF_SubEnergy( cmplxSparse.AddModeEnergy(E_mode, N_fmL, m_fmL, N_ox, m_ox, N_fmR, m_fmR, cmplxSparse.AddVoltagePotential(N_fmL, N_ox, V_MTJ, Hamiltonian)));
+    t = NEGF_SubEnergyInteg( cmplxSparse.AddModeEnergy(E_mode, N_fmL, m_fmL, N_ox, m_ox, N_fmR, m_fmR, cmplxSparse.AddVoltagePotential(N_fmL, N_ox, V_MTJ, Hamiltonian)));
     // Return result
     return t;
 }
