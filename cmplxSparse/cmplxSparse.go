@@ -777,7 +777,7 @@ func NEGF_ModeIntegFunc(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR 
     return t;
 }
 
-func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, delta_L, delta_R float64, BT_Mat_L, BT_Mat_R *[2][2]complex128, Hamiltonian *sparseMat) *[4]float64 {
+func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, delta_L, delta_R float64, N_fmL int, BT_Mat_L, BT_Mat_R *[2][2]complex128, Hamiltonian *sparseMat) *[4]float64 {
     // Initialize the return value
     t := new([4]float64);
 
@@ -786,23 +786,69 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     MaxDiagIdx := len(Hamiltonian.Data[0]);
     MainDiagIdx := (MaxDiagIdx - 1)/2;
 
-    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, 0.0, delta_L, -0.5*V_MTJ, Hamiltonian.Data[0][MaxDiagIdx-1], BT_Mat_L);
-    // Adjust Hamilonian to obtain the inverse of Green's function matrix
-    InvGMatrix := Hamiltonian;
-    InvGMatrix.Data[0][MainDiagIdx] += SelfEnergyBuffer[0][0]
-    InvGMatrix.Data[0][MainDiagIdx+1] += SelfEnergyBuffer[0][1]
-    InvGMatrix.Data[1][MainDiagIdx-1] += SelfEnergyBuffer[1][0]
-    InvGMatrix.Data[1][MainDiagIdx] += SelfEnergyBuffer[1][1]
+    // Store f1*gam1 and f2*gam2. Note that these matrices are non-zero at the top
+    // left and bottom right, respectively. Hence, it is sufficient to store them
+    // as just 2 x 2 matrices.
+    f1gam1, f2gam2 := new([2][2]complex128), new([2][2]complex128);
 
+    // Calculate f1*gam1 first and store in a buffer
+    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, 0.0, delta_L, -0.5*V_MTJ, Hamiltonian.Data[0][MaxDiagIdx-1], BT_Mat_L);
+    f1gam1[0][0] = complex(0.0, f1) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
+    f1gam1[0][1] = complex(0.0, f1) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
+    f1gam1[1][0] = complex(0.0, f1) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
+    f1gam1[1][1] = complex(0.0, f1) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
+
+    // Adjust Hamiltonian with f1gam1 to obtain the inverse of Green's function matrix
+    InvGMatrix := Hamiltonian;
+    InvGMatrix.Data[0][MainDiagIdx] -= SelfEnergyBuffer[0][0]
+    InvGMatrix.Data[0][MainDiagIdx+1] -= SelfEnergyBuffer[0][1]
+    InvGMatrix.Data[1][MainDiagIdx-1] -= SelfEnergyBuffer[1][0]
+    InvGMatrix.Data[1][MainDiagIdx] -= SelfEnergyBuffer[1][1]
+
+    // Calculate f2*gam2 next and store in a buffer
     SelfEnergyBuffer = SelfEnergyEntries(EnergyValue, modeEnergy, 0.0, delta_R, 0.5*V_MTJ, Hamiltonian.Data[MatrixSize-MaxDiagIdx+MainDiagIdx][MaxDiagIdx-1], BT_Mat_R);
-    InvGMatrix.Data[MatrixSize-2][MainDiagIdx] += SelfEnergyBuffer[0][0]
-    InvGMatrix.Data[MatrixSize-2][MainDiagIdx+1] += SelfEnergyBuffer[0][1]
-    InvGMatrix.Data[MatrixSize-1][MainDiagIdx-1] += SelfEnergyBuffer[1][0]
-    InvGMatrix.Data[MatrixSize-1][MainDiagIdx] += SelfEnergyBuffer[1][1]
+    f2gam2[0][0] = complex(0.0, f2) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
+    f2gam2[0][1] = complex(0.0, f2) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
+    f2gam2[1][0] = complex(0.0, f2) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
+    f2gam2[1][1] = complex(0.0, f2) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
+
+    // Final adjustment of Hamiltonian with f2gam2 to obtain the inverse of Green's function matrix
+    InvGMatrix.Data[MatrixSize-2][MainDiagIdx] -= SelfEnergyBuffer[0][0]
+    InvGMatrix.Data[MatrixSize-2][MainDiagIdx+1] -= SelfEnergyBuffer[0][1]
+    InvGMatrix.Data[MatrixSize-1][MainDiagIdx-1] -= SelfEnergyBuffer[1][0]
+    InvGMatrix.Data[MatrixSize-1][MainDiagIdx] -= SelfEnergyBuffer[1][1]
 
     // Calculate Green's Function matrix
     GMatrix := CalcGreensFunc(EnergyValue, InvGMatrix);
 
+    // Calculate Gn = G * (f1*gam1 + f2*gam2) * (G^+)...
+    // Since f1*gam1 and f2*gam2 are sparse matrices, we do not need to do a full matrix multiplication
+    // Calculate the non-zero portion of (f1*gam1 + f2*gam2) * (G^+) and store in RearMultBuffer:
+    // i.e. First two rows of the product are obtained from f1*gam1*(G^+) and are stored as the first
+    // two rows of RearMultBuffer. The last two rows of the product are obtained from f1*gam2*(G^+) and
+    // are stored as the last two rows of RearMultBuffer.
+    RearMultBuffer := make([][]complex128,4);
+    RearIdx0, RearIdx1 := MatrixSize - 2, MatrixSize - 1;
+    for idx0 := 0; idx0 < 4; idx0++ {
+        RearMultBuffer[idx0] = make([]complex128, MatrixSize);
+        for idx1 := 0; idx1 < MatrixSize; idx1++ {
+            if (idx0 < 2) {
+                RearMultBuffer[idx0][idx1] = f1gam1[idx0][0] * cmplx.Conj(GMatrix[0][idx1]) + f1gam1[idx0][1] * cmplx.Conj(GMatrix[1][idx1]);
+            } else {
+                if ((idx1 > 1) && (idx1 < MatrixSize - 2)) {
+                    RearMultBuffer[idx0][idx1] = f2gam2[idx0][0] * cmplx.Conj(GMatrix[2][idx1]) + f2gam2[idx0][1] * cmplx.Conj(GMatrix[3][idx1]);
+                } else {
+                    RearMultBuffer[idx0][idx1] = f2gam2[idx0][0] * cmplx.Conj(GMatrix[RearIdx0][idx1]) + f2gam2[idx0][1] * cmplx.Conj(GMatrix[RearIdx1][idx1]);
+                }
+            }
+        }
+    }
+
+    // Finally, compute the required entries of Gn.
+    // TODO: should we calculate over 6 x 6 portion to check:
+    // 1. grid point in left contact just before interface
+    // 2. grid point at interface
+    // 3. grid point in oxide barrier just after interface
     t[0] = real(GMatrix[0][0])
 
     // Return result
