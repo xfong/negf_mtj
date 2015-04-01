@@ -666,7 +666,7 @@ func SparseDiagDagger(s *sparseMat) *sparseMat {
 	return t;
 }
 
-func CalcGreensFunc(Energy, zplus float64, Hamiltonian *sparseMat) [][]complex128 {
+func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 {
 
     // At this point, Hamiltonian should consist of applied potential profile, self-energies
     // of the left and right contacts, as well as the barrier height. To obtain G, we start
@@ -699,7 +699,7 @@ func CalcGreensFunc(Energy, zplus float64, Hamiltonian *sparseMat) [][]complex12
 
         // Since we are already looping over the matrix index, we might as well add the energy
         // to the diagonal element of the matrix inverse of the Green's matrix.
-        InvGMatrix.Data[idx0][MainDiagIdx] += complex(Energy, zplus);
+        InvGMatrix.Data[idx0][MainDiagIdx] += complex(EnergyValue, utils.zplus);
 
         // Zero the entries of the buffer
         SolveVector[idx0] = complex(0.0, 0.0);
@@ -735,24 +735,24 @@ func CalcGreensFunc(Energy, zplus float64, Hamiltonian *sparseMat) [][]complex12
 
 // Function for calculating the Fermi energy
 func FermiEnergy( E_F, mu_pot, Temperature float64 ) float64 {
-    return 1.0 / (1+math.Exp((E_F - mu_pot) / (k_q*Temperature)));
+    return 1.0 / (1+math.Exp((E_F - mu_pot) / (utils.k_q * Temperature)));
 }
 
 // Function for calculating the self-energy matrices
-func SelfEnergyEntries(currEnergy, modeEnergy, t0, delta0, delta1, potential, th, ph float64, BT_Mat *[2][2]complex128) *[2][2]complex128 {
+func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64, t0 complex128, BT_Mat *[2][2]complex128) *[2][2]complex128 {
     s := new([2][2]complex128);
 
-    SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, zplus);
-    SumEnergy /= complex(-2.0 * t0, 0.0);
+    SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, utils.zplus);
+    SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
-    sig_uu := complex(-1.0 * t0,0.0) * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
+    sig_uu := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
 
-    SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, zplus);
-    SumEnergy /= complex(-2.0 * t0, 0.0);
+    SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, utils.zplus);
+    SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
-    sig_dd := complex(-1.0 * t0,0.0) * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
+    sig_dd := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
 
     s[0][0] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][0];
     s[0][1] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][1];
@@ -775,7 +775,7 @@ func NEGF_ModeIntegFunc(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR 
     return t;
 }
 
-func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, delta_L, delta_R, BT_Mat_L, BT_Mat_R float64, Hamiltonian *sparseMat) *[4]float64 {
+func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, delta_L, delta_R float64, BT_Mat_L, BT_Mat_R *[2][2]complex128, Hamiltonian *sparseMat) *[4]float64 {
     // Initialize the return value
     t := new([4]float64);
 
@@ -784,7 +784,7 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     MaxDiagIdx := len(Hamiltonian.Data[0]);
     MainDiagIdx := (MaxDiagIdx - 1)/2;
 
-    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, Hamiltonian.Data[0][MaxDiagIdx-1], 0, delta_L, -0.5*V_MTJ, BT_Mat_L);
+    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, 0.0, delta_L, -0.5*V_MTJ, Hamiltonian.Data[0][MaxDiagIdx-1], BT_Mat_L);
     // Adjust Hamilonian to obtain the inverse of Green's function matrix
     InvGMatrix := Hamiltonian;
     InvGMatrix.Data[0][MainDiagIdx] += SelfEnergyBuffer[0][0]
@@ -792,14 +792,14 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     InvGMatrix.Data[1][MainDiagIdx-1] += SelfEnergyBuffer[1][0]
     InvGMatrix.Data[1][MainDiagIdx] += SelfEnergyBuffer[1][1]
 
-    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, Hamiltonian.Data[MatrixSize-MaxDiagIdx+MainDiagIdx][MaxDiagIdx-1], 0, delta_R, 0.5*V_MTJ, BT_Mat_R);
+    SelfEnergyBuffer = SelfEnergyEntries(EnergyValue, modeEnergy, 0.0, delta_R, 0.5*V_MTJ, Hamiltonian.Data[MatrixSize-MaxDiagIdx+MainDiagIdx][MaxDiagIdx-1], BT_Mat_R);
     InvGMatrix.Data[MatrixSize-2][MainDiagIdx] += SelfEnergyBuffer[0][0]
     InvGMatrix.Data[MatrixSize-2][MainDiagIdx+1] += SelfEnergyBuffer[0][1]
     InvGMatrix.Data[MatrixSize-1][MainDiagIdx-1] += SelfEnergyBuffer[1][0]
     InvGMatrix.Data[MatrixSize-1][MainDiagIdx] += SelfEnergyBuffer[1][1]
 
     // Calculate Green's Function matrix
-    GMatrix := CalcGreensFunc(EnergyValue, zplus, InvGMatrix);
+    GMatrix := CalcGreensFunc(EnergyValue, InvGMatrix);
 
     // Return result
     return t;

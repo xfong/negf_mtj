@@ -11,19 +11,6 @@ import (
 )
 
 var (
-    Pi		= float64(4.0)*math.Atan(1.0);
-    k_B		= float64(1.3806488e-23);
-    hplanck	= float64(6.62606957e-34);
-    hbar	= hplanck/2.0/Pi;
-    echarge	= float64(1.60217657e-19);
-    mu0		= Pi*4.0e-7;
-    muB		= float64(9.27400968e-24);
-    zplus	= 1e-9;
-    m0		= float64(9.10938291e-31);
-    k_q		= k_B / echarge;
-);
-
-var (
     m_ox, m_fm_L, m_fm_R	float64;
     aSpace			float64;
     d_ox, d_fm_L, d_fm_R	float64;
@@ -35,14 +22,14 @@ var (
 );
 
 func main() {
-    fmt.Println("Pi =", Pi)
-    fmt.Println("Planck constant =", hplanck)
-    fmt.Println("Reduced Planck constant =", hbar)
-    fmt.Println("Elementary charge =", echarge)
-    fmt.Println("Permeability of free space =", mu0)
-    fmt.Println("Bohr magneton =", muB)
-    fmt.Println("Small imaginary number =", zplus)
-    fmt.Println("Free electron mass =", m0)
+    fmt.Println("Pi =", utils.Pi)
+    fmt.Println("Planck constant =", utils.hplanck)
+    fmt.Println("Reduced Planck constant =", utils.hbar)
+    fmt.Println("Elementary charge =", utils.echarge)
+    fmt.Println("Permeability of free space =", utils.mu0)
+    fmt.Println("Bohr magneton =", utils.muB)
+    fmt.Println("Small imaginary number =", utils.zplus)
+    fmt.Println("Free electron mass =", utils.m0)
 
     // Material parameters
     m_ox = float64(0.315);
