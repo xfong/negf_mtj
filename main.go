@@ -4,7 +4,6 @@ package main
 
 import (
     "math"
-    "math/cmplx"
     "fmt"
     "github.com/negf_mtj/negf_mtj/cmplxSparse"
     "github.com/negf_mtj/negf_mtj/utils"
@@ -23,13 +22,13 @@ var (
 
 func main() {
     fmt.Println("Pi =", utils.Pi)
-    fmt.Println("Planck constant =", utils.hplanck)
-    fmt.Println("Reduced Planck constant =", utils.hbar)
-    fmt.Println("Elementary charge =", utils.echarge)
-    fmt.Println("Permeability of free space =", utils.mu0)
-    fmt.Println("Bohr magneton =", utils.muB)
-    fmt.Println("Small imaginary number =", utils.zplus)
-    fmt.Println("Free electron mass =", utils.m0)
+    fmt.Println("Planck constant =", utils.Hplanck)
+    fmt.Println("Reduced Planck constant =", utils.Hbar)
+    fmt.Println("Elementary charge =", utils.Echarge)
+    fmt.Println("Permeability of free space =", utils.Mu0)
+    fmt.Println("Bohr magneton =", utils.MuB)
+    fmt.Println("Small imaginary number =", utils.Zplus)
+    fmt.Println("Free electron mass =", utils.M0)
 
     // Material parameters
     m_ox = float64(0.315);
@@ -44,7 +43,7 @@ func main() {
     fmt.Printf("Ub = %g, E_split_L = %g, E_split_R = %g\n", Ub, E_split_L, E_split_R);
 
     // Configuration parameters
-    th_F, ph_F = Pi/2.0, 0.0;    
+    th_F, ph_F = utils.Pi/2.0, 0.0;    
     th_H, ph_H = 0.0, 0.0;    
 
     fmt.Println("----------------------------------------");
@@ -73,7 +72,7 @@ func main() {
     fmt.Printf("N_ox = %d, N_fm_L = %d, N_fm_R = %d\n",N_ox, N_fm_L, N_fm_R);
     fmt.Println("----------------------------------------");
 
-    t_base := hbar*hbar/2/echarge/m0/aSpace/aSpace;
+    t_base := utils.Hbar*utils.Hbar/2/utils.Echarge/utils.M0/aSpace/aSpace;
     t_fm_L := t_base/m_fm_L;
     t_fm_R := t_base/m_fm_R;
     t_ox := t_base/m_ox;
@@ -116,12 +115,8 @@ func main() {
     Hamiltonian = cmplxSparse.AddBandSplitRightFM(mx_, my_, mz_, E_split_R, N_fm_L, Hamiltonian);
 
     // Calculate matrices for basis transformation. Done here since it is only needed once.
-    BT_Mat_L := cmplxSparse.BasisTransform(th, ph);
-    BT_Mat_R := new([2][2]complex128);
-    BT_Mat_R[0][0] = complex(1.0, 0.0);
-    BT_Mat_R[0][1] = complex(0.0, 0.0);
-    BT_Mat_R[1][0] = complex(0.0, 0.0);
-    BT_Mat_R[1][1] = complex(1.0, 0.0);
+//    BT_Mat_L := cmplxSparse.BasisTransform(th_F, ph_F);
+//    BT_Mat_R := cmplxSparse.BasisTransform(th_H, ph_H);
 
     // TODO: Add potential profile due to applied voltage
 

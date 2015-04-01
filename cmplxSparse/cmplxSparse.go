@@ -699,7 +699,7 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
 
         // Since we are already looping over the matrix index, we might as well add the energy
         // to the diagonal element of the matrix inverse of the Green's matrix.
-        InvGMatrix.Data[idx0][MainDiagIdx] += complex(EnergyValue, utils.zplus);
+        InvGMatrix.Data[idx0][MainDiagIdx] += complex(EnergyValue, utils.Zplus);
 
         // Zero the entries of the buffer
         SolveVector[idx0] = complex(0.0, 0.0);
@@ -735,20 +735,20 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
 
 // Function for calculating the Fermi energy
 func FermiEnergy( E_F, mu_pot, Temperature float64 ) float64 {
-    return 1.0 / (1+math.Exp((E_F - mu_pot) / (utils.k_q * Temperature)));
+    return 1.0 / (1+math.Exp((E_F - mu_pot) / (utils.K_q * Temperature)));
 }
 
 // Function for calculating the self-energy matrices
 func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64, t0 complex128, BT_Mat *[2][2]complex128) *[2][2]complex128 {
     s := new([2][2]complex128);
 
-    SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, utils.zplus);
+    SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, utils.Zplus);
     SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
     sig_uu := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
 
-    SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, utils.zplus);
+    SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, utils.Zplus);
     SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
@@ -770,6 +770,8 @@ func NEGF_ModeIntegFunc(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR 
     mu1, mu2 := E_Fermi + 0.5*V_MTJ, E_Fermi - 0.5*V_MTJ;
     f1, f2 := FermiEnergy(E_Fermi, mu1, Temperature), FermiEnergy(E_Fermi, mu2, Temperature);
     f1_prime, f2_prime := 1.0 - f1, 1.0 - f2;
+
+    t[0], t[1] = f1_prime, f2_prime;
 
     // Return result
     return t;
@@ -800,6 +802,8 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
 
     // Calculate Green's Function matrix
     GMatrix := CalcGreensFunc(EnergyValue, InvGMatrix);
+
+    t[0] = real(GMatrix[0][0])
 
     // Return result
     return t;
