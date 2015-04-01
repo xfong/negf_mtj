@@ -127,6 +127,10 @@ func main() {
     mx_, my_, mz_ = math.Sin(th_H)*math.Cos(ph_H), math.Sin(th_H)*math.Sin(ph_H), math.Cos(th_H);
     Hamiltonian = cmplxSparse.AddBandSplitRightFM(mx_, my_, mz_, E_split_R, N_fm_L, Hamiltonian);
 
+    // TODO: Add potential profile due to applied voltage
+
+    // TODO: Begin integration over mode space
+    
     cmplxSparse.PrintSparseMatrix(Hamiltonian);
 
 }
@@ -162,17 +166,45 @@ func SelfEnergyEntries(currEnergy, modeEnergy, t0, delta0, delta1, potential, th
     return s;
 }
 
-/*
 func NEGF_ModeIntegSetup(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, Hamiltonian *sparseMat) *[4]float64 {
     // Initialize return value
-    t := make([]float64,4);
+    t := make([]float64, 4);
 
+    // TODO: Begin integration over energy space
     mu1, mu2 := E_Fermi + 0.5*V_MTJ, E_Fermi - 0.5*V_MTJ;
     f1, f2 := FermiEnergy(E_Fermi, mu1, Temperature), FermiEnergy(E_Fermi, mu2, Temperature);
     f1_prime, f2_prime := 1.0 - f1, 1.0 - f2;
 
-    t = NEGF_SubEnergyInteg( cmplxSparse.AddModeEnergy(E_mode, N_fmL, m_fmL, N_ox, m_ox, N_fmR, m_fmR, cmplxSparse.AddVoltagePotential(N_fmL, N_ox, V_MTJ, Hamiltonian)));
     // Return result
     return t;
 }
-*/
+
+func NEGF_EnergyIntegSetup(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, delta_L, delta_R, th_L, phi_L, th_R, phi_R float64, Hamiltonian *sparseMat) *[4]float64 {
+    // Initialize the return value
+    t := make([]float64, 4);
+
+    // Get t0 on left and right of Hamiltonian matrix
+    MatrixSize := len(Hamiltonian.Data);
+    MaxDiagIdx := len(Hamiltonian.Data[0]);
+    MainDiagIdx := (MaxDiagIdx - 1)/2;
+
+    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, Hamiltonian.Data[0][MaxDiagIdx-1], 0, delta_L, -0.5*V_MTJ, th_L, phi_L);
+    // Adjust Hamilonian to obtain the inverse of Green's function matrix
+    InvGMatrix := Hamiltonian;
+    InvGMatrix.Data[0][MainDiagIdx] += SelfEnergyBuffer[0][0]
+    InvGMatrix.Data[0][MainDiagIdx+1] += SelfEnergyBuffer[0][1]
+    InvGMatrix.Data[1][MainDiagIdx-1] += SelfEnergyBuffer[1][0]
+    InvGMatrix.Data[1][MainDiagIdx] += SelfEnergyBuffer[1][1]
+
+    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, modeEnergy, Hamiltonian.Data[MatrixSize-MaxDiagIdx+MainDiagIdx][MaxDiagIdx-1], 0, delta_R, 0.5*V_MTJ, th_R, phi_R);
+    InvGMatrix.Data[MatrixSize-2][MainDiagIdx] += SelfEnergyBuffer[0][0]
+    InvGMatrix.Data[MatrixSize-2][MainDiagIdx+1] += SelfEnergyBuffer[0][1]
+    InvGMatrix.Data[MatrixSize-1][MainDiagIdx-1] += SelfEnergyBuffer[1][0]
+    InvGMatrix.Data[MatrixSize-1][MainDiagIdx] += SelfEnergyBuffer[1][1]
+
+    // Calculate Green's Function matrix
+    GMatrix := cmplxSparse.CalcGreensFunc(EnergyValue, zplus, InvGMatrix);
+
+    // Return result
+    return t;
+}
