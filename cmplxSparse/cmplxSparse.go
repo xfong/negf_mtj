@@ -845,11 +845,50 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     }
 
     // Finally, compute the required entries of Gn.
-    // TODO: should we calculate over 6 x 6 portion to check:
-    // 1. grid point in left contact just before interface
-    // 2. grid point at interface
-    // 3. grid point in oxide barrier just after interface
-    t[0] = real(GMatrix[0][0])
+    GnF, GnR := new([2][2]complex128), new([2][2]complex128);
+    GnF[0][0], GnF[0][1], GnF[1][0], GnF[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
+    GnR[0][0], GnR[0][1], GnR[1][0], GnR[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
+    PtIdx0 := 2*N_fmL;
+    PtIdx1, PtIdx2, PtIdx3 := PtIdx0 - 1, PtIdx0 + 1, PtIdx0 + 2;
+    for idx0 := 0; idx0 < 4; idx0++ {
+        GnF[0][0] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx2];
+        GnF[0][1] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx3];
+        GnF[1][0] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx2];
+        GnF[1][1] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx3];
+        GnR[0][0] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx1];
+        GnR[0][1] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx0];
+        GnR[1][0] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx1];
+        GnR[1][1] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx0];
+    }
+
+    // We know the Hamiltonian is stored in diagonal format. Extract the wanted values of Hamiltonian
+    // and multiply accordingly to GnF and GnR.
+    HamF, HamR, MatrixBuffer := new([2][2]complex128), new([2][2]complex128), new([2][2]complex128);
+    HamR[0][1] = Hamiltonian.Data[PtIdx2][MainDiagIdx-1];
+    HamR[0][0] = Hamiltonian.Data[PtIdx2][MainDiagIdx-2];
+    HamR[1][1] = Hamiltonian.Data[PtIdx3][MainDiagIdx-2];
+    HamF[1][0] = Hamiltonian.Data[PtIdx0][MainDiagIdx+1];
+    HamF[0][0] = Hamiltonian.Data[PtIdx1][MainDiagIdx+2];
+    HamF[1][1] = Hamiltonian.Data[PtIdx0][MainDiagIdx+2];
+    if (MaxDiagIdx > 6) {
+        HamR[1][0] = Hamiltonian.Data[PtIdx3][MainDiagIdx-3];
+        HamF[0][1] = Hamiltonian.Data[PtIdx1][MainDiagIdx+3];
+    } else {
+        HamR[1][0] = 0.0 + 0.0i;
+        HamF[0][1] = 0.0 + 0.0i;
+    }
+
+    // Calculate term from H*Gn - Gn*H;
+    MatrixBuffer[0][0] = HamR[0][0] * GnF[0][0] + HamR[0][1] * GnF[1][0] - GnR[0][0] * HamF[0][0] - GnR[0][1] * HamF[1][0];
+    MatrixBuffer[0][1] = HamR[0][0] * GnF[0][1] + HamR[0][1] * GnF[1][1] - GnR[0][0] * HamF[0][1] - GnR[0][1] * HamF[1][1];
+    MatrixBuffer[1][0] = HamR[1][0] * GnF[0][0] + HamR[1][1] * GnF[1][0] - GnR[1][0] * HamF[0][0] - GnR[1][1] * HamF[1][0];
+    MatrixBuffer[1][1] = HamR[1][0] * GnF[0][1] + HamR[1][1] * GnF[1][1] - GnR[1][0] * HamF[0][1] - GnR[1][1] * HamF[1][1];
+
+    // Calculate current density, and components of spin current
+    t[0] = real(MatrixBuffer[0][0] + MatrixBuffer[1][1]); // Charge current density
+    t[1] = real(MatrixBuffer[1][0] + MatrixBuffer[0][1]);
+    t[2] = real(1.0i * MatrixBuffer[0][1] - 1.0i * MatrixBuffer[1][0]);
+    t[3] = real(MatrixBuffer[0][0] - MatrixBuffer[1][1]); // z-component of spin current density
 
     // Return result
     return t;
