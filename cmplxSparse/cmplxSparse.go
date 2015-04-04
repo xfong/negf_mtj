@@ -675,20 +675,13 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
             SolveVector[idx0-1] = 0.0 + 0.0i;
         }
         SolveVector[idx0] = 1.0 + 0.0i;
-        for idx1 := 0; idx1 < MatrixSize; idx1++ {
-            fmt.Println("SolveVector[", idx1,"] = ", SolveVector[idx1]);
-        }
-        fmt.Println("Post print vector");
         SolveBuffer = SparseDiagLinearSolver(InvGMatrix, SolveVector);
-        fmt.Println("Post solve");
         if ((idx0 > 1) && (idx0 < MatrixSize - 2)) {
-            fmt.Println("Outside first two and last two rows/columns");
             GMatrix[idx0][0] = SolveBuffer[0];
             GMatrix[idx0][1] = SolveBuffer[1];
             GMatrix[idx0][2] = SolveBuffer[MatrixSize-2];
             GMatrix[idx0][3] = SolveBuffer[MatrixSize-1];
         } else {
-            fmt.Println("Inside first two and last two rows/columns");
             for idx1 := 0; idx1 < MatrixSize; idx1 ++ {
                 GMatrix[idx0][idx1] = SolveBuffer[idx1];
             }
