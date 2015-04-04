@@ -118,11 +118,22 @@ func main() {
 //    BT_Mat_L := cmplxSparse.BasisTransform(th_F, ph_F);
 //    BT_Mat_R := cmplxSparse.BasisTransform(th_H, ph_H);
 
+    cmplxSparse.PrintSparseMatrix(Hamiltonian);
+
     // TODO: Add potential profile due to applied voltage
 
     // TODO: Begin integration over mode space
-    
-    cmplxSparse.PrintSparseMatrix(Hamiltonian);
+    GreensFunc := cmplxSparse.CalcGreensFunc(0, Hamiltonian);
 
+    GreensSize := len(GreensFunc);
+    fmt.Println("Printing Green's function matrix");
+    for idx0 := 0; idx0 < GreensSize; idx0++ {
+        VecSize := len(GreensFunc[idx0]);
+        for idx1 := 0; idx1 < VecSize; idx1++ {
+            fmt.Printf("%f  ", GreensFunc[idx0][idx1]);
+        }
+        fmt.Printf("\n");
+    }
+    fmt.Printf("\n");
 }
 

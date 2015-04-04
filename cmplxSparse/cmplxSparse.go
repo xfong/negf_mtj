@@ -651,9 +651,9 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
         // sig_in and sig_out, which will only have non-zero entries at the top left or
         // bottom right corners of the matrix.
         if ((idx0 < 2) || (idx0 > (MatrixSize - 3))) {
-            GMatrix[idx0] = make([]complex128, 4);
-        } else {
             GMatrix[idx0] = make([]complex128, MatrixSize);
+        } else {
+            GMatrix[idx0] = make([]complex128, 4);
         }
 
         // Since we are already looping over the matrix index, we might as well add the energy
@@ -661,27 +661,34 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
         InvGMatrix.Data[idx0][MainDiagIdx] += complex(EnergyValue, utils.Zplus);
 
         // Zero the entries of the buffer
-        SolveVector[idx0] = complex(0.0, 0.0);
+        SolveVector[idx0] = 0.0 + 0.0i;
     }
 
     // Perform LU factorization of the matrix first
     InvGMatrix = SparseDiagLU(InvGMatrix);
 
     // We can save on some operations post-LU factorization by adjusting the b vector in
-    // A*x = b as we solve for x using the SparseDiagLinearSolverMin function. We may then
+    // A*x = b as we solve for x using the SparseDiagLinearSolver function. We may then
     // store the solution directly to GMatrix.
     for idx0 := 0; idx0 < MatrixSize; idx0++ {
         if (idx0 > 0) {
-            SolveVector[idx0-1] = complex(0.0, 0.0);
+            SolveVector[idx0-1] = 0.0 + 0.0i;
         }
-        SolveVector[idx0] = complex(1.0, 0.0);
+        SolveVector[idx0] = 1.0 + 0.0i;
+        for idx1 := 0; idx1 < MatrixSize; idx1++ {
+            fmt.Println("SolveVector[", idx1,"] = ", SolveVector[idx1]);
+        }
+        fmt.Println("Post print vector");
         SolveBuffer = SparseDiagLinearSolver(InvGMatrix, SolveVector);
+        fmt.Println("Post solve");
         if ((idx0 > 1) && (idx0 < MatrixSize - 2)) {
+            fmt.Println("Outside first two and last two rows/columns");
             GMatrix[idx0][0] = SolveBuffer[0];
             GMatrix[idx0][1] = SolveBuffer[1];
             GMatrix[idx0][2] = SolveBuffer[MatrixSize-2];
             GMatrix[idx0][3] = SolveBuffer[MatrixSize-1];
         } else {
+            fmt.Println("Inside first two and last two rows/columns");
             for idx1 := 0; idx1 < MatrixSize; idx1 ++ {
                 GMatrix[idx0][idx1] = SolveBuffer[idx1];
             }
