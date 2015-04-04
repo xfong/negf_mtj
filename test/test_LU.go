@@ -52,21 +52,49 @@ func testDiagInversion( n int ) {
 	for idx0 := 0; idx0 < matrixSize; idx0++ {
 		tmp.Data[idx0][2] -= complex(0.0,5.0);
 	}
+    fmt.Println("Accessing matrix elements of Hamiltonian (m,n):");
+
+    for idx0 := 0; idx0 < matrixSize; idx0++ {
+        for idx1 := 0; idx1 < matrixSize; idx1++ {
+            test := cmplxSparse.AccessMatrix(idx0,idx1,tmp);
+            fmt.Printf("%f  ", test);
+        }
+        fmt.Printf("\n");
+    }
+    fmt.Printf("\n");
+
+    tmp0 := cmplxSparse.SparseDiagLU(tmp);
+    fmt.Println("Accessing matrix elements of LU (m,n):");
+    for idx0 := 0; idx0 < matrixSize; idx0++ {
+        for idx1 := 0; idx1 < matrixSize; idx1++ {
+            test := cmplxSparse.AccessMatrix(idx0,idx1,tmp0);
+            fmt.Printf("%f  ", test);
+        }
+        fmt.Printf("\n");
+    }
+    fmt.Printf("\n");
 
     InvBuffer := make([][]complex128, matrixSize);
-    BVector := make([]complex128, matrixSize);
     for idx0 := 0; idx0 < matrixSize; idx0++ {
-        BVector[idx0] = 0;
-    }
-    for idx0 := 0; idx0 < matrixSize; idx0++ {
-        if (idx0 > 0) {
-            BVector[idx0-1] = 0.0 + 0.0i;
-        }
-        BVector[idx0] = 1;
         InvBuffer[idx0] = make([]complex128, matrixSize);
-        InvBuffer[idx0] = SparseDiagLinearSolver(tmp, BVector);
+        for idx1 := 0; idx1 < matrixSize; idx1++ {
+            InvBuffer[idx0][idx1] = 0.0 + 0.0i;
+        }
     }
-    fmt.Println("Accessing matrix elements (m,n):");
+
+    for idx0 := 0; idx0 < matrixSize; idx0++ {
+        fmt.Println("Solving for: A*x = b");
+        InvBuffer[idx0][idx0] = 1.0 + 0.0i;
+        BufferMatrix := cmplxSparse.SparseDiagLinearSolver(tmp0, InvBuffer[idx0]);
+        for idx1 := 0; idx1 < matrixSize; idx1++ {
+            fmt.Printf("b = %f, x = ", InvBuffer[idx0][idx1]);
+            InvBuffer[idx0][idx1] = BufferMatrix[idx1];
+            fmt.Printf("%f\n", BufferMatrix[idx1]);
+        }
+        fmt.Printf("\n");
+    }
+
+    fmt.Println("Accessing matrix elements if inverse (m,n):");
 
     for idx0 := 0; idx0 < matrixSize; idx0++ {
         for idx1 := 0; idx1 < matrixSize; idx1++ {

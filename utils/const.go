@@ -18,5 +18,5 @@ var (
     M0		    = float64(9.10938291e-31);
     K_q		    = K_B / Echarge;
     ECurrFactor = Echarge * Echarge / Hplanck;
-    SCurrFactor = ECharge / (4*Pi);
+    SCurrFactor = Echarge / (4*Pi);
 )

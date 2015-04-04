@@ -524,7 +524,7 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 	}
 
 	// Find LU factorization of A first
-	LU_A := SparseDiagLU(A);
+	// LU_A := SparseDiagLU(A);
 
 	// Use back substitution to determine x:
 	// First solve L*y = b using back substitution. Then, solve U*x = y.
@@ -532,87 +532,46 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 	// Create variables for indexing
 	numMatCols := len(A.Data[0]);
 	mainDiagIdx := (numMatCols - 1)/2;
+
 	var (
 		idx0, loopCnt, offSetIdx		int
 	)
 
 	// Use buffer to store result
-	x := b;
+	x := make([]complex128, VectorSize);
 
-	for idx0 = 1; idx0 < MatrixSize; idx0++ {
-		loopCnt = idx0;
-		if (mainDiagIdx < idx0) {
-			loopCnt = mainDiagIdx;
-		}
-
-		for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
-			x[idx0] -= x[(idx0-offSetIdx)]*LU_A.Data[idx0][(mainDiagIdx-offSetIdx)];
-		}
+    // Back substitution to solve L*y = b. Use x as buffer storage for y since
+    // steps needed to compute particular entries are only dependent on
+    // previously computed entries.
+	for idx0 = 0; idx0 < MatrixSize; idx0++ {
+        x[idx0] = b[idx0];
+        if (idx0 > 0) {
+            loopCnt = idx0;
+    		if (mainDiagIdx < idx0) {
+        		loopCnt = mainDiagIdx;
+            }
+    		for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
+        		x[idx0] -= x[(idx0-offSetIdx)]*A.Data[idx0][(mainDiagIdx-offSetIdx)];
+            }
+        }
 	}
 
+    // Back substitution to solve U*x = y.
 	for idx0 = 0; idx0 < MatrixSize; idx0++ {
-		if (idx0 > 1) {
+        targIdx := MatrixSize - 1 - idx0;
+		if (idx0 > 0) {
 			loopCnt = idx0;
 			if (mainDiagIdx < loopCnt) {
 				loopCnt = mainDiagIdx;
 			}
 			for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
-				x[idx0] -= x[(idx0+offSetIdx)] * LU_A.Data[idx0][(mainDiagIdx+offSetIdx)];
+				x[targIdx] -= x[(targIdx+offSetIdx)] * A.Data[targIdx][(mainDiagIdx+offSetIdx)];
 			}
-			t_num_R, t_num_I := real(LU_A.Data[idx0][mainDiagIdx]), imag(LU_A.Data[idx0][mainDiagIdx]);
-			t_num := t_num_R*t_num_R + t_num_I*t_num_I;
-			x[idx0] *= complex(t_num_R/t_num, -1.0*t_num_I/t_num); 
-		}
-	}
-	return x;
-}
+        }
 
-// Function to solve A*x = b, where sparse matrix stored in diagonal format. This function assumes
-// that A is the factorized version of the actual matrix.
-func SparseDiagLinearSolverMin(LU_A *sparseMat, b []complex128) []complex128 {
-	MatrixSize, VectorSize := len(LU_A.Data), len(b);
-	if (MatrixSize != VectorSize) {
-		errors.New("ERROR: Mismatch between matrix size and vector length!");
+		x[targIdx] /= A.Data[targIdx][mainDiagIdx];
 	}
 
-	// Use back substitution to determine x:
-	// First solve L*y = b using back substitution. Then, solve U*x = y.
-
-	// Create variables for indexing
-	numMatCols := len(LU_A.Data[0]);
-	mainDiagIdx := (numMatCols - 1)/2;
-	var (
-		idx0, loopCnt, offSetIdx		int
-	)
-
-	// Use buffer to store result
-	x := b;
-
-	for idx0 = 1; idx0 < MatrixSize; idx0++ {
-		loopCnt = idx0;
-		if (mainDiagIdx < idx0) {
-			loopCnt = mainDiagIdx;
-		}
-
-		for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
-			x[idx0] -= x[(idx0-offSetIdx)]*LU_A.Data[idx0][(mainDiagIdx-offSetIdx)];
-		}
-	}
-
-	for idx0 = 0; idx0 < MatrixSize; idx0++ {
-		if (idx0 > 1) {
-			loopCnt = idx0;
-			if (mainDiagIdx < loopCnt) {
-				loopCnt = mainDiagIdx;
-			}
-			for offSetIdx = 1; offSetIdx < loopCnt+1; offSetIdx++ {
-				x[idx0] -= x[(idx0+offSetIdx)] * LU_A.Data[idx0][(mainDiagIdx+offSetIdx)];
-			}
-			t_num_R, t_num_I := real(LU_A.Data[idx0][mainDiagIdx]), imag(LU_A.Data[idx0][mainDiagIdx]);
-			t_num := t_num_R*t_num_R + t_num_I*t_num_I;
-			x[idx0] *= complex(t_num_R/t_num, -1.0*t_num_I/t_num); 
-		}
-	}
 	return x;
 }
 
@@ -716,7 +675,7 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
             SolveVector[idx0-1] = complex(0.0, 0.0);
         }
         SolveVector[idx0] = complex(1.0, 0.0);
-        SolveBuffer = SparseDiagLinearSolverMin(InvGMatrix, SolveVector);
+        SolveBuffer = SparseDiagLinearSolver(InvGMatrix, SolveVector);
         if ((idx0 > 1) && (idx0 < MatrixSize - 2)) {
             GMatrix[idx0][0] = SolveBuffer[0];
             GMatrix[idx0][1] = SolveBuffer[1];
