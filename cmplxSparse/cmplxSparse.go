@@ -729,7 +729,10 @@ func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64
     return s;
 }
 
-func NEGF_ModeIntegFunc(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, BT_Mat_L, BT_Mat_R *[2][2]complex128, Hamiltonian *sparseMat) *[4]float64 {
+// This function is called during integration over mode energies.
+// TODO: inside this function, we need to integrate over energy. This integration should call the
+// function NEGF_EnergyIntegFunc
+func NEGF_ModeIntegFunc(E_mode, V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, BT_Mat_L, BT_Mat_R *[2][2]complex128, Hamiltonian *sparseMat) *[4]float64 {
     // Initialize return value
     t := new([4]float64);
 
@@ -738,12 +741,15 @@ func NEGF_ModeIntegFunc(E_mode, V_MTJ, E_Fermi, Temperature, m_fmL, m_ox, m_fmR 
     f1, f2 := FermiEnergy(E_Fermi, mu1, Temperature), FermiEnergy(E_Fermi, mu2, Temperature);
     f1_prime, f2_prime := 1.0 - f1, 1.0 - f2;
 
-    t[0], t[1] = f1_prime, f2_prime;
+    fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
+    t = NEGF_EnergyIntegFunc(0.0, E_mode, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, deltaL, deltaR, N_fmL, BT_Mat_L, BT_Mat_R, Hamiltonian);
 
+    t[2], t[3] = 0.0, 0.0;
     // Return result
     return t;
 }
 
+// This function is called during integration over energies.
 func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f2_prime, V_MTJ, delta_L, delta_R float64, N_fmL int, BT_Mat_L, BT_Mat_R *[2][2]complex128, Hamiltonian *sparseMat) *[4]float64 {
     // Initialize the return value
     t := new([4]float64);
@@ -797,16 +803,14 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     RearMultBuffer := make([][]complex128,4);
     RearIdx0, RearIdx1 := MatrixSize - 2, MatrixSize - 1;
     for idx0 := 0; idx0 < 4; idx0++ {
+        // Initialize buffer storage
         RearMultBuffer[idx0] = make([]complex128, MatrixSize);
+        // Calculate each entry of the current row
         for idx1 := 0; idx1 < MatrixSize; idx1++ {
             if (idx0 < 2) {
                 RearMultBuffer[idx0][idx1] = f1gam1[idx0][0] * cmplx.Conj(GMatrix[0][idx1]) + f1gam1[idx0][1] * cmplx.Conj(GMatrix[1][idx1]);
             } else {
-                if ((idx1 > 1) && (idx1 < MatrixSize - 2)) {
-                    RearMultBuffer[idx0][idx1] = f2gam2[idx0][0] * cmplx.Conj(GMatrix[2][idx1]) + f2gam2[idx0][1] * cmplx.Conj(GMatrix[3][idx1]);
-                } else {
-                    RearMultBuffer[idx0][idx1] = f2gam2[idx0][0] * cmplx.Conj(GMatrix[RearIdx0][idx1]) + f2gam2[idx0][1] * cmplx.Conj(GMatrix[RearIdx1][idx1]);
-                }
+                RearMultBuffer[idx0][idx1] = f2gam2[idx0-2][0] * cmplx.Conj(GMatrix[RearIdx0][idx1]) + f2gam2[idx0-2][1] * cmplx.Conj(GMatrix[RearIdx1][idx1]);
             }
         }
     }
@@ -818,14 +822,14 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     PtIdx0 := 2*N_fmL;
     PtIdx1, PtIdx2, PtIdx3 := PtIdx0 - 1, PtIdx0 + 1, PtIdx0 + 2;
     for idx0 := 0; idx0 < 4; idx0++ {
-        GnF[0][0] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx2];
-        GnF[0][1] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx3];
-        GnF[1][0] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx2];
-        GnF[1][1] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx3];
-        GnR[0][0] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx1];
-        GnR[0][1] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx0];
-        GnR[1][0] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx1];
-        GnR[1][1] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx0];
+        GnF[0][0] += GMatrix[PtIdx1][idx0] * RearMultBuffer[idx0][PtIdx2];
+        GnF[0][1] += GMatrix[PtIdx1][idx0] * RearMultBuffer[idx0][PtIdx3];
+        GnF[1][0] += GMatrix[PtIdx0][idx0] * RearMultBuffer[idx0][PtIdx2];
+        GnF[1][1] += GMatrix[PtIdx0][idx0] * RearMultBuffer[idx0][PtIdx3];
+        GnR[0][0] += GMatrix[PtIdx2][idx0] * RearMultBuffer[idx0][PtIdx1];
+        GnR[0][1] += GMatrix[PtIdx2][idx0] * RearMultBuffer[idx0][PtIdx0];
+        GnR[1][0] += GMatrix[PtIdx3][idx0] * RearMultBuffer[idx0][PtIdx1];
+        GnR[1][1] += GMatrix[PtIdx3][idx0] * RearMultBuffer[idx0][PtIdx0];
     }
 
     // We know the Hamiltonian is stored in diagonal format. Extract the wanted values of Hamiltonian
