@@ -802,16 +802,20 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     // are stored as the last two rows of RearMultBuffer.
     RearMultBuffer := make([][]complex128,4);
     RearIdx0, RearIdx1 := MatrixSize - 2, MatrixSize - 1;
+    // Initialize buffer storage
     for idx0 := 0; idx0 < 4; idx0++ {
-        // Initialize buffer storage
         RearMultBuffer[idx0] = make([]complex128, MatrixSize);
-        // Calculate each entry of the current row
-        for idx1 := 0; idx1 < MatrixSize; idx1++ {
-            if (idx0 < 2) {
-                RearMultBuffer[idx0][idx1] = f1gam1[idx0][0] * cmplx.Conj(GMatrix[0][idx1]) + f1gam1[idx0][1] * cmplx.Conj(GMatrix[1][idx1]);
-            } else {
-                RearMultBuffer[idx0][idx1] = f2gam2[idx0-2][0] * cmplx.Conj(GMatrix[RearIdx0][idx1]) + f2gam2[idx0-2][1] * cmplx.Conj(GMatrix[RearIdx1][idx1]);
-            }
+    }
+    // Calculate each row of RearMultBuffer
+    for idx0 := 0; idx0 < MatrixSize; idx0++ {
+        RearMultBuffer[0][idx0] = f1gam1[0][0] * GMatrix[idx0][0] + f1gam1[0][1] * GMatrix[idx0][1];
+        RearMultBuffer[1][idx0] = f1gam1[1][0] * GMatrix[idx0][0] + f1gam1[1][1] * GMatrix[idx0][1];
+        if ((idx0 > 1) && (idx0 < RearIdx0)) {
+            RearMultBuffer[2][idx0] = f2gam2[0][0] * GMatrix[idx0][2] + f2gam2[0][1] * GMatrix[idx0][3];
+            RearMultBuffer[3][idx0] = f2gam2[1][0] * GMatrix[idx0][2] + f2gam2[1][1] * GMatrix[idx0][3];
+        } else {
+            RearMultBuffer[2][idx0] = f2gam2[0][0] * GMatrix[idx0][RearIdx0] + f2gam2[0][1] * GMatrix[idx0][RearIdx1];
+            RearMultBuffer[3][idx0] = f2gam2[1][0] * GMatrix[idx0][RearIdx0] + f2gam2[1][1] * GMatrix[idx0][RearIdx1];
         }
     }
 
@@ -821,15 +825,40 @@ func NEGF_EnergyIntegFunc(EnergyValue, modeEnergy, mu1, mu2, f1, f2, f1_prime, f
     GnR[0][0], GnR[0][1], GnR[1][0], GnR[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
     PtIdx0 := 2*N_fmL;
     PtIdx1, PtIdx2, PtIdx3 := PtIdx0 - 1, PtIdx0 + 1, PtIdx0 + 2;
+    // Here, GMatrix is actually the transpose of G. But G is stored without the middle parts that are all zeros.
+    // The non-zero entries of G are:
+    // 1. The first two rows.
+    // 2. The first two columns.
+    // 3. The last two rows.
+    // 4. The last two columns.
+    // Scanning the first index of GMatrix scans through the columns of G.
+    // The second index of GMatrix selects the row.
+    fmt.Println("Size of GMatrix is", len(GMatrix));
     for idx0 := 0; idx0 < 4; idx0++ {
-        GnF[0][0] += GMatrix[PtIdx1][idx0] * RearMultBuffer[idx0][PtIdx2];
-        GnF[0][1] += GMatrix[PtIdx1][idx0] * RearMultBuffer[idx0][PtIdx3];
-        GnF[1][0] += GMatrix[PtIdx0][idx0] * RearMultBuffer[idx0][PtIdx2];
-        GnF[1][1] += GMatrix[PtIdx0][idx0] * RearMultBuffer[idx0][PtIdx3];
-        GnR[0][0] += GMatrix[PtIdx2][idx0] * RearMultBuffer[idx0][PtIdx1];
-        GnR[0][1] += GMatrix[PtIdx2][idx0] * RearMultBuffer[idx0][PtIdx0];
-        GnR[1][0] += GMatrix[PtIdx3][idx0] * RearMultBuffer[idx0][PtIdx1];
-        GnR[1][1] += GMatrix[PtIdx3][idx0] * RearMultBuffer[idx0][PtIdx0];
+        if (idx0 < 2) {
+            // When multiplication involves first two rows of RearMultBuffer,
+            // we need to access first two columns of G. 
+            GnF[0][0] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx2];
+            GnF[0][1] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx3];
+            GnF[1][0] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx2];
+            GnF[1][1] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx3];
+            GnR[0][0] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx1];
+            GnR[0][1] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx0];
+            GnR[1][0] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx1];
+            GnR[1][1] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx0];
+        } else {
+            // When multiplication involves last two rows of RearMultBuffer,
+            // we need to access last two columns of G. 
+            targIdx := MatrixSize - 4;
+            GnF[0][0] += GMatrix[targIdx + idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx2];
+            GnF[0][1] += GMatrix[targIdx + idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx3];
+            GnF[1][0] += GMatrix[targIdx + idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx2];
+            GnF[1][1] += GMatrix[targIdx + idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx3];
+            GnR[0][0] += GMatrix[targIdx + idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx1];
+            GnR[0][1] += GMatrix[targIdx + idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx0];
+            GnR[1][0] += GMatrix[targIdx + idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx1];
+            GnR[1][1] += GMatrix[targIdx + idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx0];
+        }
     }
 
     // We know the Hamiltonian is stored in diagonal format. Extract the wanted values of Hamiltonian
