@@ -117,7 +117,7 @@ func testScaleMatrix( n int ) {
         cmplxSparse.MakeHamTriDiag(n, tmp);
 
         fmt.Println("Scaling matrix by factor of 5+1*im\n");
-	cmplxSparse.ScaleSparseMatrixIP(complex(5,1), tmp);
+	cmplxSparse.ScaleSparseMatrix(complex(5,1), tmp);
         fmt.Println("Accessing matrix elements (m,n):");
 
         for idx0 := 0; idx0 < matrixSize; idx0++ {
@@ -130,10 +130,10 @@ func testScaleMatrix( n int ) {
 
 	fmt.Printf("\n");
         fmt.Println("Scaling matrix by factor of 1/5\n");
-	tmp2 := cmplxSparse.ScaleSparseMatrix(complex128(0.2),tmp);
+	cmplxSparse.ScaleSparseMatrix(complex128(0.2),tmp);
         for idx0 := 0; idx0 < matrixSize; idx0++ {
                 for idx1 := 0; idx1 < matrixSize; idx1++ {
-                        test := cmplxSparse.AccessMatrix(idx0,idx1,tmp2);
+                        test := cmplxSparse.AccessMatrix(idx0,idx1,tmp);
                         fmt.Printf("%f  ", test);
                 }
                 fmt.Printf("\n");
@@ -267,7 +267,7 @@ func testRangeScale(A complex128, startIdx, endIdx, diagIdx, n int ) {
         cmplxSparse.MakeHamTriDiag(n, tmp);
 
         fmt.Println("Scaling index ", startIdx, " to ", endIdx, " on the ", diagIdx," diagonal of matrix by ", A);
-	cmplxSparse.ScaleRangeSparseMatrixIP(startIdx, endIdx, diagIdx, A, tmp);
+	cmplxSparse.ScaleRangeSparseMatrix(startIdx, endIdx, diagIdx, A, tmp);
         fmt.Println("Accessing matrix elements (m,n):");
 
         for idx0 := 0; idx0 < matrixSize; idx0++ {

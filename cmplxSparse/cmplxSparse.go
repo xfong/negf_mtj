@@ -36,6 +36,25 @@ func New() *sparseMat {
 	return tmp;
 }
 
+// Function to create duplicate copy of sparse diagonal matrix
+func SparseCopy(s *sparseMat) *sparseMat {
+    t := New();
+    MatrixSize := len(s.Data);
+    if (MatrixSize > 0) {
+        t.Data = make([][]complex128, MatrixSize);
+        for idx0 := 0; idx0 < MatrixSize; idx0++ {
+            VecLength := len(s.Data[idx0]);
+            if (VecLength > 0) {
+                t.Data[idx0] = make([]complex128, VecLength);
+                for idx1 := 0; idx1 < VecLength; idx1++ {
+                    t.Data[idx0][idx1] = s.Data[idx0][idx1];
+                }
+            }
+        }
+    }
+    return t;
+}
+
 // Function to access matrix elements
 func AccessMatrix( m, n int, s *sparseMat ) complex128 {
 	if ((m < 0) || (n < 0)) {
@@ -62,7 +81,7 @@ func PrintSparseMatrix( s *sparseMat ) {
 	if (matSize < 1) {
 		return;
 	}
-        matDiags := len(s.Data[0]);
+    matDiags := len(s.Data[0]);
 	fmt.Println("----------------------------------------");
 	if (matDiags == 1) {
 		fmt.Println("The matrix is 1 x 1 :");
@@ -142,44 +161,47 @@ func SparseDiagAdd(s, t *sparseMat) *sparseMat {
 
 	mainDiagIdxS, mainDiagIdxT := (len(s.Data[0]) - 1)/2, (len(t.Data[0]) - 1)/2;
 
-	u := t;
-	flag0 := 1;
-	sweepIdx := mainDiagIdxS;
+    var (
+        u           *sparseMat
+        flag0       int
+    );
 
 	if (mainDiagIdxT < mainDiagIdxS) {
-		u = s;
+		u = SparseCopy(s);
 		flag0 = 0;
-		sweepIdx = mainDiagIdxT;
-	}
+	} else {
+        u = SparseCopy(t);
+        flag0 = 1;
+    }
 
 	if (flag0 == 0) {
 		// u is storing s
+        for idx0 := 0; idx0 < Ssize; idx0++ {
+            startIdx, endIdx := -1*mainDiagIdxT, 2*mainDiagIdxT;
+            if (idx0 < mainDiagIdxT) {  
+                startIdx = -1 * idx0;
+            }
+            if (idx0 > Tsize - 1 - mainDiagIdxT) {
+                endIdx = Tsize - 1 - idx0;
+            }
+            for idx1 := startIdx; idx1 <= endIdx; idx1++ {
+                u.Data[idx0][mainDiagIdxS+idx1] += t.Data[idx0][mainDiagIdxT+idx1];
+            }
+        }
 	} else {
 		// u is storing t
-	}
-	for idx0 := 0; idx0 < Ssize; idx0++ {
-		// Calculate the main diagonal first
-		if (flag0 == 0) {
-			// u is storing s
-			u.Data[idx0][mainDiagIdxS] += t.Data[idx0][mainDiagIdxT];
-		} else {
-			// u is storing t
-			u.Data[idx0][mainDiagIdxT] += t.Data[idx0][mainDiagIdxS];
-		}
-		// Calculate the off-diagonal terms
-		termIdx := idx0;
-		if (sweepIdx < termIdx) {
-			termIdx = sweepIdx;
-		}
-		for idx1 := 1; idx1 < termIdx; idx1++ {
-			if (flag0 == 0) {
-				// u is storing s
-				u.Data[idx0][mainDiagIdxS - idx1] += t.Data[idx0][mainDiagIdxT - idx1];
-			} else {
-				// u is storing t
-				u.Data[idx0][mainDiagIdxT - idx1] += t.Data[idx0][mainDiagIdxS - idx1];
-			}
-		}
+        for idx0 := 0; idx0 < Ssize; idx0++ {
+            startIdx, endIdx := -1*mainDiagIdxS, 2*mainDiagIdxS;
+            if (idx0 < mainDiagIdxS) {  
+                startIdx = -1 * idx0;
+            }
+            if (idx0 > Ssize - 1 - mainDiagIdxS) {
+                endIdx = Ssize - 1 - idx0;
+            }
+            for idx1 := startIdx; idx1 <= endIdx; idx1++ {
+                u.Data[idx0][mainDiagIdxT+idx1] += s.Data[idx0][mainDiagIdxS+idx1];
+            }
+        }
 	}
 
 	return u;
@@ -192,27 +214,14 @@ func SparseDiagMAdd(mult complex128, s, t *sparseMat) *sparseMat {
 		errors.New("ERROR: cannot add matrices of different sizes!");
 	}
 
-	u := t;
-	ScaleSparseMatrixIP(mult, u);
+	u := SparseCopy(t);
+	ScaleSparseMatrix(mult, u);
 	u = SparseDiagAdd(s,u);
 	return u;
 }
 
 // Function for scalar multiplication of sparse matrix
-func ScaleSparseMatrix(A complex128, B *sparseMat) *sparseMat {
-	s := B;
-
-	for idx0 := 0 ; idx0 < len(s.Data); idx0++ {
-		for idx1 := 0; idx1 < len(s.Data[idx0]); idx1++ {
-			s.Data[idx0][idx1] *= A;
-		}
-	}
-
-	return s
-}
-
-// Function for in-place scalar multiplication of sparse matrix
-func ScaleSparseMatrixIP(A complex128, s *sparseMat) {
+func ScaleSparseMatrix(A complex128, s *sparseMat) {
 	for idx0 := 0 ; idx0 < len(s.Data); idx0++ {
 		for idx1 := 0; idx1 < len(s.Data[idx0]); idx1++ {
 			s.Data[idx0][idx1] *= A;
@@ -226,7 +235,7 @@ func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *sparseMat ) *spars
 	totalPts := tmpLength/2;
 	voltageProfile := make([]float64,totalPts)
 	voltageDelta := voltage/float64(N_ox+1);
-	t := s;
+    t := SparseCopy(s);
 	for idx0 := 0; idx0 < totalPts; idx0++ {
 		if (idx0 <= N_fm) {
 			voltageProfile[idx0] = 0.5*voltage;
@@ -260,10 +269,11 @@ func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *sparseMat ) {
 	}
 }
 
-// Function for adding barrier potential profile to Hamiltonian
-func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, s *sparseMat ) {
-	tmpLength := len(s.Data);
+// Function for adding mode energy profile to Hamiltonian
+func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, t *sparseMat ) *sparseMat {
+	tmpLength := len(t.Data);
 	totalPts := tmpLength/2;
+    s := SparseCopy(t);
 	if ((N_fmL >= totalPts) || (N_ox >= totalPts) || (N_fmR >= totalPts)) {
 		errors.New("ERROR: Indices are out of range!");
 	} else if ((N_fmL < 0) || (N_ox < 0) || (N_fmR < 0)) {
@@ -297,6 +307,8 @@ func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox flo
         s.Data[2*idx0][mainDiagIdx] += complex(E_modeFm, 0.0);
         s.Data[2*idx0+1][mainDiagIdx] += complex(E_modeFm, 0.0);
     }
+
+    return s;
 }
 
 // Function for adding band splitting for up-spin and down-spin conduction bands on left contact
@@ -321,7 +333,7 @@ func AddBandSplitLeftFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *spar
 	BT[0][1] = complex(m_x*scaleFac,-m_y*scaleFac);
 	BT[1][0] = complex(m_x*scaleFac,m_y*scaleFac);
 
-	t := s;
+	t := SparseCopy(s);
 
 	for idx0 := 0; idx0 < N_fm; idx0++ {
 		currIdx := 2*idx0;
@@ -360,7 +372,7 @@ func AddBandSplitRightFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *spa
 	BT[0][1] = complex(m_x*scaleFac,-m_y*scaleFac);
 	BT[1][0] = complex(m_x*scaleFac,m_y*scaleFac);
 
-	t := s;
+	t := SparseCopy(s);
 
 	grdSz := len(s.Data)/2;
 	startIdx := grdSz-N_fm;
@@ -381,7 +393,7 @@ func AddBandSplitRightFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *spa
 
 // Function for in-place scalar multiplication of part of sparse Hamiltonian matrix
 // for placing t_0 in correct positions
-func ScaleRangeSparseMatrixIP(startPtr, endPtr int, diagIdx int, A complex128, s *sparseMat) {
+func ScaleRangeSparseMatrix(startPtr, endPtr int, diagIdx int, A complex128, s *sparseMat) {
 	grdPts := len(s.Data);
 	diagNum := (len(s.Data[0]) + 1)/2;
 
@@ -427,24 +439,23 @@ func SparseDiagAccess( m, n int, s *sparseMat ) complex128 {
 
 // Function for executing Doolittle's algorithm to perform LU
 // factorization of sparse matrix stored in Diagonal format
-func SparseDiagLU(s *sparseMat) *sparseMat {
+func SparseDiagLU(t *sparseMat) {
 	// Get indices for performing for loops...
-	maxSize := len(s.Data);
-	t := s;
+	maxSize := len(t.Data);
 
 	// Handle small matrix sizes (up to 2 x 2)
 	if (maxSize == 1) {
-		return t;
+		return;
 	} else if (maxSize == 2) {
-		if (s.Data[1][0] == complex(0.0,0.0)) {
-			return t;
+		if (t.Data[1][0] == complex(0.0,0.0)) {
+			return;
 		} else {
 			t.Data[1][0] /= t.Data[1][0];
 			t.Data[1][1] -= t.Data[0][2]*t.Data[0][1]/t.Data[1][0];
-			return t; 
+			return; 
 		}
 	}
-	maxMatIdx := len(s.Data[0]) - 1
+	maxMatIdx := len(t.Data[0]) - 1
 	mainDiagIdx := maxMatIdx/2;
 
 	// For matrices 3x3 and larger
@@ -513,7 +524,7 @@ func SparseDiagLU(s *sparseMat) *sparseMat {
 		}
 	}
 
-	return t;
+	return;
 }
 
 // Function to solve A*x = b, where sparse matrix stored in diagonal format
@@ -522,9 +533,6 @@ func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
 	if (MatrixSize != VectorSize) {
 		errors.New("ERROR: Mismatch between matrix size and vector length!");
 	}
-
-	// Find LU factorization of A first
-	// LU_A := SparseDiagLU(A);
 
 	// Use back substitution to determine x:
 	// First solve L*y = b using back substitution. Then, solve U*x = y.
@@ -601,7 +609,7 @@ func SparseDiagDagger(s *sparseMat) *sparseMat {
 	mainDiagIdx := (numDiags-1)/2;
 
 	// Initialize output variable
-	t := s;
+	t := SparseCopy(s);
 
 	for idx0 := 0; idx0 < matSize; idx0++ {
 		// Complex conjugate main diagonal
@@ -633,7 +641,7 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
 
     MatrixSize := len(Hamiltonian.Data);
     MainDiagIdx := (len(Hamiltonian.Data[0]) - 1) / 2;
-    InvGMatrix := Hamiltonian;
+    InvGMatrix := SparseCopy(Hamiltonian);
 
     // Initialize buffer memory to save calculated column of Green's Function Matrix.
     // We are exploiting the fact that we do not need to save the entire matrix so as
@@ -665,7 +673,7 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 
     }
 
     // Perform LU factorization of the matrix first
-    InvGMatrix = SparseDiagLU(InvGMatrix);
+    SparseDiagLU(InvGMatrix);
 
     // We can save on some operations post-LU factorization by adjusting the b vector in
     // A*x = b as we solve for x using the SparseDiagLinearSolver function. We may then

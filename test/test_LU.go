@@ -29,7 +29,8 @@ func testLU( n int ) {
 		tmp.Data[idx0][2] -= complex(0.0,5.0);
 	}
 
-	LU_mat := cmplxSparse.SparseDiagLU(tmp);
+	LU_mat := cmplxSparse.SparseCopy(tmp);
+	cmplxSparse.SparseDiagLU(LU_mat);
         fmt.Println("Accessing matrix elements (m,n):");
 
         for idx0 := 0; idx0 < matrixSize; idx0++ {
@@ -63,7 +64,8 @@ func testDiagInversion( n int ) {
     }
     fmt.Printf("\n");
 
-    tmp0 := cmplxSparse.SparseDiagLU(tmp);
+    tmp0 := cmplxSparse.SparseCopy(tmp);
+    cmplxSparse.SparseDiagLU(tmp0);
     fmt.Println("Accessing matrix elements of LU (m,n):");
     for idx0 := 0; idx0 < matrixSize; idx0++ {
         for idx1 := 0; idx1 < matrixSize; idx1++ {
@@ -83,13 +85,10 @@ func testDiagInversion( n int ) {
     }
 
     for idx0 := 0; idx0 < matrixSize; idx0++ {
-        fmt.Println("Solving for: A*x = b");
         InvBuffer[idx0][idx0] = 1.0 + 0.0i;
         BufferMatrix := cmplxSparse.SparseDiagLinearSolver(tmp0, InvBuffer[idx0]);
         for idx1 := 0; idx1 < matrixSize; idx1++ {
-            fmt.Printf("b = %f, x = ", InvBuffer[idx0][idx1]);
             InvBuffer[idx0][idx1] = BufferMatrix[idx1];
-            fmt.Printf("%f\n", BufferMatrix[idx1]);
         }
         fmt.Printf("\n");
     }
