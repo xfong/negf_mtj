@@ -31,7 +31,7 @@ func main() {
     fmt.Println("Small imaginary number =", utils.Zplus)
     fmt.Println("Free electron mass =", utils.M0)
 
-    // Material parameters
+    // Set material parameters
     m_ox = float64(0.315);
     m_fm_L = float64(0.72);
     m_fm_R = m_fm_L;
@@ -45,7 +45,7 @@ func main() {
     fmt.Printf("Ub = %g, E_split_L = %g, E_split_R = %g\n", Ub, E_split_L, E_split_R);
 
     // Configuration parameters
-    th_F, ph_F = utils.Pi/2.0, 0.0;    
+    th_F, ph_F = utils.Pi/1.0, 0.0;    
     th_H, ph_H = 0.0, 0.0;
     Vmtj, Temperature = 0.0, 300.0;
 
@@ -80,52 +80,58 @@ func main() {
     t_fm_R := t_base/m_fm_R;
     t_ox := t_base/m_ox;
 
-
-    fmt.Printf("t_ox = %f, t_fm_L = %f, t_fm_R = %f\n",t_ox, t_fm_L, t_fm_R);
-    fmt.Printf("2t_ox = %f, 2t_fm_L = %f, 2t_fm_R = %f\n",2*t_ox, 2*t_fm_L, 2*t_fm_R);
+    fmt.Printf("t_fm_L = %f, t_ox = %f, t_fm_R = %f\n",t_fm_L, t_ox, t_fm_R);
+    fmt.Printf("2t_fm_L = %f, 2t_ox = %f, 2t_fm_R = %f\n",2*t_fm_L, 2*t_ox, 2*t_fm_R);
     fmt.Println("----------------------------------------");
 
+    // Create data structure for use with integration functions.
+    ProblemSet := cmplxSparse.CreateIntegStruct();
+
     // Initialize a base matrix template
-    Hamiltonian := cmplxSparse.New();
-    cmplxSparse.MakeHamTriDiag(N_fm_L+N_fm_R+N_ox+2,Hamiltonian);
+    HamBuffer := cmplxSparse.New();
+    cmplxSparse.MakeHamTriDiag( N_fm_L+N_fm_R+N_ox+2, HamBuffer);
 
     // Build the main diagonal first
-    cmplxSparse.ScaleRangeSparseMatrix(0, 2*N_fm_L-1, 0, complex(t_fm_L, 0.0), Hamiltonian); // Left FM contact
-    cmplxSparse.ScaleRangeSparseMatrix(2*N_fm_L, 2*N_fm_L+1, 0, complex(0.5*(t_fm_L+t_ox), 0.0), Hamiltonian); // Interface of left FM contact with barrier
-    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+1), 2*(N_fm_L+N_ox)+1, 0, complex(t_ox, 0.0), Hamiltonian); // Barrier
-    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+1), 2*(N_fm_L+N_ox)+3, 0, complex(0.5*(t_ox+t_fm_R), 0.0), Hamiltonian); // Interface of right FM contact with barrier
-    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox)+4, 2*(N_fm_L+N_ox+N_fm_R)+3, 0, complex(t_fm_R, 0.0), Hamiltonian); // Right FM contact
+    cmplxSparse.ScaleRangeSparseMatrix(0, 2*N_fm_L-1, 0, complex(t_fm_L, 0.0), HamBuffer); // Left FM contact
+    cmplxSparse.ScaleRangeSparseMatrix(2*N_fm_L, 2*N_fm_L+1, 0, complex(0.5*(t_fm_L+t_ox), 0.0), HamBuffer); // Interface of left FM contact with barrier
+    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+1), 2*(N_fm_L+N_ox)+1, 0, complex(t_ox, 0.0), HamBuffer); // Barrier
+    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+1), 2*(N_fm_L+N_ox)+3, 0, complex(0.5*(t_ox+t_fm_R), 0.0), HamBuffer); // Interface of right FM contact with barrier
+    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox)+4, 2*(N_fm_L+N_ox+N_fm_R)+3, 0, complex(t_fm_R, 0.0), HamBuffer); // Right FM contact
 
     // Build the upper diagonal
-    cmplxSparse.ScaleRangeSparseMatrix(0, 2*N_fm_L-1, 2, complex(t_fm_L, 0.0), Hamiltonian);
-    cmplxSparse.ScaleRangeSparseMatrix(2*N_fm_L, 2*(N_fm_L+N_ox)+1, 2, complex(t_ox, 0.0), Hamiltonian);
-    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+1), 2*(N_fm_L+N_ox+N_fm_R)+1, 2, complex(t_fm_R, 0.0), Hamiltonian);
+    cmplxSparse.ScaleRangeSparseMatrix(0, 2*N_fm_L-1, 2, complex(t_fm_L, 0.0), HamBuffer);
+    cmplxSparse.ScaleRangeSparseMatrix(2*N_fm_L, 2*(N_fm_L+N_ox)+1, 2, complex(t_ox, 0.0), HamBuffer);
+    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+1), 2*(N_fm_L+N_ox+N_fm_R)+1, 2, complex(t_fm_R, 0.0), HamBuffer);
 
     // Build the lower diagonal
-    cmplxSparse.ScaleRangeSparseMatrix(2, 2*N_fm_L+1, -2, complex(t_fm_L, 0.0), Hamiltonian);
-    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+1), 2*(N_fm_L+N_ox)+3, -2, complex(t_ox, 0.0), Hamiltonian);
-    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+2), 2*(N_fm_L+N_ox+N_fm_R)+3, -2, complex(t_fm_R, 0.0), Hamiltonian);
+    cmplxSparse.ScaleRangeSparseMatrix(2, 2*N_fm_L+1, -2, complex(t_fm_L, 0.0), HamBuffer);
+    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+1), 2*(N_fm_L+N_ox)+3, -2, complex(t_ox, 0.0), HamBuffer);
+    cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+2), 2*(N_fm_L+N_ox+N_fm_R)+3, -2, complex(t_fm_R, 0.0), HamBuffer);
 
     // Include barrier
-    cmplxSparse.AddBarrierProfile(N_fm_L, N_ox, -1.0*Ub, Hamiltonian);
+    cmplxSparse.AddBarrierProfile(N_fm_L, N_ox, -1.0*Ub, HamBuffer);
 
     // Include band splitting to left FM contact
     mx_, my_, mz_ := math.Sin(th_F)*math.Cos(ph_F), math.Sin(th_F)*math.Sin(ph_F), math.Cos(th_F);
-    Hamiltonian = cmplxSparse.AddBandSplitLeftFM(mx_, my_, mz_, E_split_L, N_fm_L, Hamiltonian);
+    HamBuffer = cmplxSparse.AddBandSplitLeftFM(mx_, my_, mz_, -1.0*E_split_L, N_fm_L, HamBuffer);
 
     // Include band splitting to right FM contact
     mx_, my_, mz_ = math.Sin(th_H)*math.Cos(ph_H), math.Sin(th_H)*math.Sin(ph_H), math.Cos(th_H);
-    Hamiltonian = cmplxSparse.AddBandSplitRightFM(mx_, my_, mz_, E_split_R, N_fm_L, Hamiltonian);
+    HamBuffer = cmplxSparse.AddBandSplitRightFM(mx_, my_, mz_, -1.0*E_split_R, N_fm_L, HamBuffer);
 
     // Calculate matrices for basis transformation. Done here since it is only needed once.
-    BT_Mat_L := cmplxSparse.BasisTransform(th_F, ph_F);
-    BT_Mat_R := cmplxSparse.BasisTransform(th_H, ph_H);
+    ProblemSet.SetHamiltonian(HamBuffer);
+    ProblemSet.SetParams(Vmtj, E_Fermi, Temperature, E_split_L, E_split_R, m_fm_L, m_ox, m_fm_R, N_fm_L, N_ox, N_fm_R, cmplxSparse.BasisTransform(th_F, ph_F), cmplxSparse.BasisTransform(th_H, ph_H));
+    ProblemSet.SetMu();
 
-    cmplxSparse.PrintSparseMatrix(Hamiltonian);
+    cmplxSparse.PrintSparseMatrix(ProblemSet.ReturnHamiltonianPtr());
 
     // TODO: integrate over mode energies
+    // i.e. We should integrate over the region E_mode = [0, +inf)
     E_mode := 0.0;
-    currents := cmplxSparse.NEGF_ModeIntegFunc(E_mode, Vmtj, E_Fermi, Temperature, E_split_L, E_split_R, m_fm_L, m_ox, m_fm_R, N_fm_L, N_ox, N_fm_R, BT_Mat_L, BT_Mat_R, Hamiltonian);
+    ProbDup := cmplxSparse.CreateIntegStruct();
+    ProbDup.CopyIntegStruct(ProblemSet);
+    currents := ProbDup.NEGF_ModeIntegFunc(E_mode);
 
     for idx0 := 0; idx0 < len(currents); idx0++ {
         fmt.Println("currents[", idx0, "] =", currents[idx0]);
