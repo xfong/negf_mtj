@@ -7,7 +7,7 @@ import (
 	"math"
 	"math/cmplx"
 	"fmt"
-    "github.com/negf_mtj/negf_mtj/utils"
+	"github.com/negf_mtj/negf_mtj/utils"
 )
 
 // Sparse matrix data structure stores a matrix in Diagonal form, which is convenient
@@ -24,31 +24,20 @@ import (
 //          -1.0 2.0 -1.0
 //          -1.0 2.0  0.0
 
-type sparseMat struct {
+type SparseMat struct {
 	Data			[][]complex128
-}
-
-type IntegStruct struct {
-    E_mode, V_MTJ, E_Fermi	float64;
-    Temperature, deltaL     float64;
-    deltaR, m_fmL, m_ox     float64;
-    m_fmR, mu1, mu2, f1, f2 float64;
-    f1_prime, f2_prime      float64;
-    N_fmL, N_ox, N_fmR      int;
-    BT_Mat_L, BT_Mat_R      *[2][2]complex128;
-    Hamiltonian             *sparseMat
 }
 
 func init() {
 }
 
-func New() *sparseMat {
-	tmp := new(sparseMat);
+func New() *SparseMat {
+	tmp := new(SparseMat);
 	return tmp;
 }
 
 // Function to create duplicate copy of sparse diagonal matrix
-func SparseCopy(s *sparseMat) *sparseMat {
+func SparseCopy(s *SparseMat) *SparseMat {
     t := New();
     MatrixSize := len(s.Data);
     if (MatrixSize > 0) {
@@ -67,7 +56,7 @@ func SparseCopy(s *sparseMat) *sparseMat {
 }
 
 // Function to access matrix elements
-func AccessMatrix( m, n int, s *sparseMat ) complex128 {
+func AccessMatrix( m, n int, s *SparseMat ) complex128 {
 	if ((m < 0) || (n < 0)) {
 		errors.New("Access indices cannot be negative!");
 	} else {
@@ -87,7 +76,7 @@ func AccessMatrix( m, n int, s *sparseMat ) complex128 {
 }
 
 // Function to print matrix to screen
-func PrintSparseMatrix( s *sparseMat ) {
+func PrintSparseMatrix( s *SparseMat ) {
 	matSize := len(s.Data);
 	if (matSize < 1) {
 		return;
@@ -111,7 +100,7 @@ func PrintSparseMatrix( s *sparseMat ) {
 }
 
 // Function to initialize an identity matrix in Diagonal format
-func MakeIdentity( matSize int, s *sparseMat ) {
+func MakeIdentity( matSize int, s *SparseMat ) {
 	// TODO: error if matsize is zero and less
 	if (matSize <= 0) {
 		errors.New("ERROR: Invalid size for matrix (<=0)");
@@ -124,7 +113,7 @@ func MakeIdentity( matSize int, s *sparseMat ) {
 }
 
 // Function to initialize a standard tridiagonal matrix
-func MakeTriDiag ( matSize int, s *sparseMat ) {
+func MakeTriDiag ( matSize int, s *SparseMat ) {
 	// TODO: error if matSize is zero and less
 	if (matSize <= 0) {
 		errors.New("ERROR: matrix size must be 1 or larger!");
@@ -148,7 +137,7 @@ func MakeTriDiag ( matSize int, s *sparseMat ) {
 }
 
 // Function for creating basic tridiagonal Hamiltonian for MTJ
-func MakeHamTriDiag( grdSize int, s *sparseMat ) {
+func MakeHamTriDiag( grdSize int, s *SparseMat ) {
 	if (grdSize < 5) {
 		errors.New("ERROR: Creating the Hamiltonian requires at least 5 points!");
 	}
@@ -164,7 +153,7 @@ func MakeHamTriDiag( grdSize int, s *sparseMat ) {
 }
 
 // Function for adding two sparse matrices stored in diagonal format
-func SparseDiagAdd(s, t *sparseMat) *sparseMat {
+func SparseDiagAdd(s, t *SparseMat) *SparseMat {
 	Ssize, Tsize := len(s.Data), len(t.Data);
 	if (Ssize != Tsize) {
 		errors.New("ERROR: cannot add matrices of different sizes!");
@@ -173,7 +162,7 @@ func SparseDiagAdd(s, t *sparseMat) *sparseMat {
 	mainDiagIdxS, mainDiagIdxT := (len(s.Data[0]) - 1)/2, (len(t.Data[0]) - 1)/2;
 
     var (
-        u           *sparseMat
+        u           *SparseMat
         flag0       int
     );
 
@@ -219,7 +208,7 @@ func SparseDiagAdd(s, t *sparseMat) *sparseMat {
 }
 
 // Function for scaled sparse matrix (t) to another sparse matrix (s), both stored in diagonal format
-func SparseDiagMAdd(mult complex128, s, t *sparseMat) *sparseMat {
+func SparseDiagMAdd(mult complex128, s, t *SparseMat) *SparseMat {
 	Ssize, Tsize := len(s.Data), len(t.Data);
 	if (Ssize != Tsize) {
 		errors.New("ERROR: cannot add matrices of different sizes!");
@@ -232,7 +221,7 @@ func SparseDiagMAdd(mult complex128, s, t *sparseMat) *sparseMat {
 }
 
 // Function for scalar multiplication of sparse matrix
-func ScaleSparseMatrix(A complex128, s *sparseMat) {
+func ScaleSparseMatrix(A complex128, s *SparseMat) {
 	for idx0 := 0 ; idx0 < len(s.Data); idx0++ {
 		for idx1 := 0; idx1 < len(s.Data[idx0]); idx1++ {
 			s.Data[idx0][idx1] *= A;
@@ -241,7 +230,7 @@ func ScaleSparseMatrix(A complex128, s *sparseMat) {
 }
 
 // Function for adding applied voltage profile to Hamiltonian
-func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *sparseMat ) *sparseMat {
+func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *SparseMat ) *SparseMat {
 	tmpLength := len(s.Data);
 	totalPts := tmpLength/2;
 	voltageProfile := make([]float64,totalPts)
@@ -262,7 +251,7 @@ func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *sparseMat ) *spars
 }
 
 // Function for adding barrier potential profile to Hamiltonian
-func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *sparseMat ) {
+func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *SparseMat ) {
 	tmpLength := len(s.Data);
 	totalPts := tmpLength/2;
 	if ((N_fm >= totalPts) || (N_ox >= totalPts)) {
@@ -281,7 +270,7 @@ func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *sparseMat ) {
 }
 
 // Function for adding mode energy profile to Hamiltonian
-func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, t *sparseMat ) *sparseMat {
+func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, t *SparseMat ) *SparseMat {
 	tmpLength := len(t.Data);
 	totalPts := tmpLength/2;
     s := SparseCopy(t);
@@ -323,7 +312,7 @@ func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox flo
 }
 
 // Function for adding band splitting for up-spin and down-spin conduction bands on left contact
-func AddBandSplitLeftFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *sparseMat {
+func AddBandSplitLeftFM(mx, my, mz, deltE float64, N_fm int, s *SparseMat) *SparseMat {
 	Mnorm := mx*mx + my*my + mz*mz;
 	if (Mnorm == 0) {
 		errors.New("ERROR: invalid mx, my and mz combination!");
@@ -362,7 +351,7 @@ func AddBandSplitLeftFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *spar
 }
 
 // Function for adding band splitting for up-spin and down-spin conduction bands on right contact
-func AddBandSplitRightFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *sparseMat {
+func AddBandSplitRightFM(mx, my, mz, deltE float64, N_fm int, s *SparseMat) *SparseMat {
 	Mnorm := mx*mx + my*my + mz*mz;
 	if (Mnorm == 0) {
 		errors.New("ERROR: invalid mx, my and mz combination!");
@@ -404,7 +393,7 @@ func AddBandSplitRightFM(mx, my, mz, deltE float64, N_fm int, s *sparseMat) *spa
 
 // Function for in-place scalar multiplication of part of sparse Hamiltonian matrix
 // for placing t_0 in correct positions
-func ScaleRangeSparseMatrix(startPtr, endPtr int, diagIdx int, A complex128, s *sparseMat) {
+func ScaleRangeSparseMatrix(startPtr, endPtr int, diagIdx int, A complex128, s *SparseMat) {
 	grdPts := len(s.Data);
 	diagNum := (len(s.Data[0]) + 1)/2;
 
@@ -430,7 +419,7 @@ func ScaleRangeSparseMatrix(startPtr, endPtr int, diagIdx int, A complex128, s *
 
 // Special function for accessing elements of sparse matrices
 // stored in Diagonal format
-func SparseDiagAccess( m, n int, s *sparseMat ) complex128 {
+func SparseDiagAccess( m, n int, s *SparseMat ) complex128 {
 	maxSize := len(s.Data);
 	if ((m >= maxSize) || (n >= maxSize)) {
 		errors.New("ERROR: Indices are out of range!");
@@ -450,7 +439,7 @@ func SparseDiagAccess( m, n int, s *sparseMat ) complex128 {
 
 // Function for executing Doolittle's algorithm to perform LU
 // factorization of sparse matrix stored in Diagonal format
-func SparseDiagLU(t *sparseMat) {
+func SparseDiagLU(t *SparseMat) {
 	// Get indices for performing for loops...
 	maxSize := len(t.Data);
 
@@ -539,7 +528,7 @@ func SparseDiagLU(t *sparseMat) {
 }
 
 // Function to solve A*x = b, where sparse matrix stored in diagonal format
-func SparseDiagLinearSolver(A *sparseMat, b []complex128) []complex128 {
+func SparseDiagLinearSolver(A *SparseMat, b []complex128) []complex128 {
 	MatrixSize, VectorSize := len(A.Data), len(b);
 	if (MatrixSize != VectorSize) {
 		errors.New("ERROR: Mismatch between matrix size and vector length!");
@@ -612,7 +601,7 @@ func BasisTransform(th, phi float64) *[2][2]complex128 {
 
 // Function to obtain complex conjugate (dagger operation) of
 // sparse matrix stored in diagonal form
-func SparseDiagDagger(s *sparseMat) *sparseMat {
+func SparseDiagDagger(s *SparseMat) *SparseMat {
 
 	// Initiaize variables for indexing purposes
 	matSize := len(s.Data);
@@ -644,7 +633,7 @@ func SparseDiagDagger(s *sparseMat) *sparseMat {
 	return t;
 }
 
-func CalcGreensFunc(EnergyValue float64, Hamiltonian *sparseMat) [][]complex128 {
+func CalcGreensFunc(EnergyValue float64, Hamiltonian *SparseMat) [][]complex128 {
 
     // At this point, Hamiltonian should consist of applied potential profile, self-energies
     // of the left and right contacts, as well as the barrier height. To obtain G, we start
@@ -738,232 +727,4 @@ func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64
     s[1][1] = cmplx.Conj(BT_Mat[0][1])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][1])*sig_dd*BT_Mat[1][1];
 
     return s;
-}
-
-// TODO: Since the integration over energies use the same function parameters,
-// (i.e., for each function call, we only need to change the mode energy and 
-// value of energy at which we are evaluating the function) and we know how to
-// implement quadrature methods for functions taking scalar inputs and returns
-// a scalar, we can consider using a data structure to hold the function
-// parameters, and use a function call to set the energies. These functions
-// can be called SetAndIntegMode(float64) and SetAndIntegEnergy(float64),
-// respectively. To support parallization, these functions may need a local
-// copy of the data structure holding the input parameters.
-
-func CreateIntegStruct() *IntegStruct {
-    s := new(IntegStruct);
-    return s;
-}
-
-func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
-    t.E_mode = s.E_mode;
-    t.mu1 = s.mu1;
-    t.mu2 = s.mu2;
-    t.f1 = s.f1;
-    t.f2 = s.f2;
-    t.f1_prime = s.f1_prime;
-    t.f2_prime = s.f2_prime;
-    t.V_MTJ = s.V_MTJ;
-    t.Temperature = s.Temperature;
-    t.deltaL = s.deltaL;
-    t.deltaR = s.deltaR;
-    t.m_fmL = s.m_fmL;
-    t.m_ox = s.m_ox;
-    t.m_fmR = s.m_fmR;
-    t.N_fmL = s.N_fmL;
-    t.N_ox = s.N_ox;
-    t.N_fmR = s.N_fmR;
-    t.BT_Mat_L = s.BT_Mat_L;
-    t.BT_Mat_R = s.BT_Mat_R;
-    t.Hamiltonian = s.Hamiltonian;
-    return;
-}
-
-func (s *IntegStruct) SetMode( ModeEnergy float64 ) {
-    s.E_mode = ModeEnergy;
-}
-
-func (s *IntegStruct) SetHamiltonian( Hamiltonian *sparseMat ) {
-    s.Hamiltonian = Hamiltonian;
-}
-
-func (s *IntegStruct) ReturnHamiltonianPtr( ) *sparseMat {
-    return s.Hamiltonian;
-}
-
-func (s *IntegStruct) SetParams( V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, BT_Mat_L, BT_Mat_R *[2][2]complex128 ) {
-    s.V_MTJ, s.E_Fermi, s.Temperature, s.deltaL, s.deltaR = V_MTJ, E_Fermi, Temperature, deltaL, deltaR;
-    s.m_fmL, s.m_ox, s.m_fmR = m_fmL, m_ox, m_fmR;
-    s.N_fmL, s.N_ox, s.N_fmR = N_fmL, N_ox, N_fmR;
-    s.BT_Mat_L, s.BT_Mat_R = BT_Mat_L, BT_Mat_R;
-}
-
-func (s *IntegStruct) SetMu( ) {
-    s.mu1, s.mu2 = s.E_Fermi + 0.5*s.V_MTJ, s.E_Fermi - 0.5*s.V_MTJ;
-    s.f1, s.f2 = FermiEnergy(s.E_Fermi, s.mu1, s.Temperature), FermiEnergy(s.E_Fermi, s.mu2, s.Temperature);
-    s.f1_prime, s.f2_prime = 1.0 - s.f1, 1.0 - s.f2;
-}
-
-// This function is called during integration over mode energies.
-// TODO: inside this function, we need to integrate over energy. This integration should call the
-// function NEGF_EnergyIntegFunc
-func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[4]float64 {
-    // Initialize return value
-    t := new([4]float64);
-    s.SetMode(E_mode);
-
-    // TODO: Begin integration over energy space
-
-    fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
-    // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
-    // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
-    t = s.NEGF_EnergyIntegFunc(0.0);
-
-    // Return result
-    return t;
-}
-
-// This function is called during integration over energies.
-func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[4]float64 {
-    // Initialize the return value
-    t := new([4]float64);
-
-    // Get t0 on left and right of Hamiltonian matrix
-    MatrixSize := len(s.Hamiltonian.Data);
-    MaxDiagIdx := len(s.Hamiltonian.Data[0]);
-    MainDiagIdx := (MaxDiagIdx - 1)/2;
-
-    // Store f1*gam1 and f2*gam2. Note that these matrices are non-zero at the top
-    // left and bottom right, respectively. Hence, it is sufficient to store them
-    // as just 2 x 2 matrices.
-    f1gam1, f2gam2 := new([2][2]complex128), new([2][2]complex128);
-
-    // Calculate f1*gam1 first and store in a buffer
-    SelfEnergyBuffer := SelfEnergyEntries(EnergyValue, s.E_mode, 0.0, s.deltaL, -0.5*s.V_MTJ, s.Hamiltonian.Data[0][MaxDiagIdx-1], s.BT_Mat_L);
-    f1gam1[0][0] = complex(0.0, s.f1) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
-    f1gam1[0][1] = complex(0.0, s.f1) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
-    f1gam1[1][0] = complex(0.0, s.f1) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
-    f1gam1[1][1] = complex(0.0, s.f1) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
-
-    // Adjust Hamiltonian with f1gam1 to obtain the inverse of Green's function matrix
-    InvGMatrix := SparseCopy(s.Hamiltonian);
-    InvGMatrix.Data[0][MainDiagIdx] -= SelfEnergyBuffer[0][0]
-    InvGMatrix.Data[0][MainDiagIdx+1] -= SelfEnergyBuffer[0][1]
-    InvGMatrix.Data[1][MainDiagIdx-1] -= SelfEnergyBuffer[1][0]
-    InvGMatrix.Data[1][MainDiagIdx] -= SelfEnergyBuffer[1][1]
-
-    // Calculate f2*gam2 next and store in a buffer
-    SelfEnergyBuffer = SelfEnergyEntries(EnergyValue, s.E_mode, 0.0, s.deltaR, 0.5*s.V_MTJ, s.Hamiltonian.Data[MatrixSize-MaxDiagIdx+MainDiagIdx][MaxDiagIdx-1], s.BT_Mat_R);
-    f2gam2[0][0] = complex(0.0, s.f2) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
-    f2gam2[0][1] = complex(0.0, s.f2) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
-    f2gam2[1][0] = complex(0.0, s.f2) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
-    f2gam2[1][1] = complex(0.0, s.f2) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
-
-    // Final adjustment of Hamiltonian with f2gam2 to obtain the inverse of Green's function matrix
-    InvGMatrix.Data[MatrixSize-2][MainDiagIdx] -= SelfEnergyBuffer[0][0]
-    InvGMatrix.Data[MatrixSize-2][MainDiagIdx+1] -= SelfEnergyBuffer[0][1]
-    InvGMatrix.Data[MatrixSize-1][MainDiagIdx-1] -= SelfEnergyBuffer[1][0]
-    InvGMatrix.Data[MatrixSize-1][MainDiagIdx] -= SelfEnergyBuffer[1][1]
-
-    // Calculate Green's Function matrix
-    GMatrix := CalcGreensFunc(EnergyValue, InvGMatrix);
-
-    // Calculate Gn = G * (f1*gam1 + f2*gam2) * (G^+)...
-    // Since f1*gam1 and f2*gam2 are sparse matrices, we do not need to do a full matrix multiplication
-    // Calculate the non-zero portion of (f1*gam1 + f2*gam2) * (G^+) and store in RearMultBuffer:
-    // i.e. First two rows of the product are obtained from f1*gam1*(G^+) and are stored as the first
-    // two rows of RearMultBuffer. The last two rows of the product are obtained from f1*gam2*(G^+) and
-    // are stored as the last two rows of RearMultBuffer.
-    RearMultBuffer := make([][]complex128,4);
-    RearIdx0, RearIdx1 := MatrixSize - 2, MatrixSize - 1;
-    // Initialize buffer storage
-    for idx0 := 0; idx0 < 4; idx0++ {
-        RearMultBuffer[idx0] = make([]complex128, MatrixSize);
-    }
-    // Calculate each row of RearMultBuffer
-    for idx0 := 0; idx0 < MatrixSize; idx0++ {
-        RearMultBuffer[0][idx0] = f1gam1[0][0] * GMatrix[idx0][0] + f1gam1[0][1] * GMatrix[idx0][1];
-        RearMultBuffer[1][idx0] = f1gam1[1][0] * GMatrix[idx0][0] + f1gam1[1][1] * GMatrix[idx0][1];
-        if ((idx0 > 1) && (idx0 < RearIdx0)) {
-            RearMultBuffer[2][idx0] = f2gam2[0][0] * GMatrix[idx0][2] + f2gam2[0][1] * GMatrix[idx0][3];
-            RearMultBuffer[3][idx0] = f2gam2[1][0] * GMatrix[idx0][2] + f2gam2[1][1] * GMatrix[idx0][3];
-        } else {
-            RearMultBuffer[2][idx0] = f2gam2[0][0] * GMatrix[idx0][RearIdx0] + f2gam2[0][1] * GMatrix[idx0][RearIdx1];
-            RearMultBuffer[3][idx0] = f2gam2[1][0] * GMatrix[idx0][RearIdx0] + f2gam2[1][1] * GMatrix[idx0][RearIdx1];
-        }
-    }
-
-    // Finally, compute the required entries of Gn.
-    GnF, GnR := new([2][2]complex128), new([2][2]complex128);
-    GnF[0][0], GnF[0][1], GnF[1][0], GnF[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
-    GnR[0][0], GnR[0][1], GnR[1][0], GnR[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
-    PtIdx0 := 2*s.N_fmL;
-    PtIdx1, PtIdx2, PtIdx3 := PtIdx0 - 1, PtIdx0 + 1, PtIdx0 + 2;
-
-    // GMatrix is actually the transpose of G. Due to the nature of (f1*gam1 + f2*gam2)
-    // the entries of G that we need are:
-    // 1. The first two rows.
-    // 2. The first two columns.
-    // 3. The last two rows.
-    // 4. The last two columns.
-    // Scanning the first index of GMatrix scans through the columns of G.
-    // The second index of GMatrix selects the row.
-    for idx0 := 0; idx0 < 4; idx0++ {
-        if (idx0 < 2) {
-            // When multiplication involves first two rows of RearMultBuffer,
-            // we need to access first two columns of G. 
-            GnF[0][0] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx2];
-            GnF[0][1] += GMatrix[idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx3];
-            GnF[1][0] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx2];
-            GnF[1][1] += GMatrix[idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx3];
-            GnR[0][0] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx1];
-            GnR[0][1] += GMatrix[idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx0];
-            GnR[1][0] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx1];
-            GnR[1][1] += GMatrix[idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx0];
-        } else {
-            // When multiplication involves last two rows of RearMultBuffer,
-            // we need to access last two columns of G. 
-            targIdx := MatrixSize - 4;
-            GnF[0][0] += GMatrix[targIdx + idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx2];
-            GnF[0][1] += GMatrix[targIdx + idx0][PtIdx1] * RearMultBuffer[idx0][PtIdx3];
-            GnF[1][0] += GMatrix[targIdx + idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx2];
-            GnF[1][1] += GMatrix[targIdx + idx0][PtIdx0] * RearMultBuffer[idx0][PtIdx3];
-            GnR[0][0] += GMatrix[targIdx + idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx1];
-            GnR[0][1] += GMatrix[targIdx + idx0][PtIdx2] * RearMultBuffer[idx0][PtIdx0];
-            GnR[1][0] += GMatrix[targIdx + idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx1];
-            GnR[1][1] += GMatrix[targIdx + idx0][PtIdx3] * RearMultBuffer[idx0][PtIdx0];
-        }
-    }
-
-    // We know the Hamiltonian is stored in diagonal format. Extract the wanted values of Hamiltonian
-    // and multiply accordingly to GnF and GnR.
-    HamF, HamR, MatrixBuffer := new([2][2]complex128), new([2][2]complex128), new([2][2]complex128);
-    HamR[0][1] = s.Hamiltonian.Data[PtIdx2][MainDiagIdx-1];
-    HamR[0][0] = s.Hamiltonian.Data[PtIdx2][MainDiagIdx-2];
-    HamR[1][1] = s.Hamiltonian.Data[PtIdx3][MainDiagIdx-2];
-    HamF[1][0] = s.Hamiltonian.Data[PtIdx0][MainDiagIdx+1];
-    HamF[0][0] = s.Hamiltonian.Data[PtIdx1][MainDiagIdx+2];
-    HamF[1][1] = s.Hamiltonian.Data[PtIdx0][MainDiagIdx+2];
-    if (MaxDiagIdx > 6) {
-        HamR[1][0] = s.Hamiltonian.Data[PtIdx3][MainDiagIdx-3];
-        HamF[0][1] = s.Hamiltonian.Data[PtIdx1][MainDiagIdx+3];
-    } else {
-        HamR[1][0] = 0.0 + 0.0i;
-        HamF[0][1] = 0.0 + 0.0i;
-    }
-
-    // Calculate term from H*Gn - Gn*H;
-    MatrixBuffer[0][0] = HamR[0][0] * GnF[0][0] + HamR[0][1] * GnF[1][0] - GnR[0][0] * HamF[0][0] - GnR[0][1] * HamF[1][0];
-    MatrixBuffer[0][1] = HamR[0][0] * GnF[0][1] + HamR[0][1] * GnF[1][1] - GnR[0][0] * HamF[0][1] - GnR[0][1] * HamF[1][1];
-    MatrixBuffer[1][0] = HamR[1][0] * GnF[0][0] + HamR[1][1] * GnF[1][0] - GnR[1][0] * HamF[0][0] - GnR[1][1] * HamF[1][0];
-    MatrixBuffer[1][1] = HamR[1][0] * GnF[0][1] + HamR[1][1] * GnF[1][1] - GnR[1][0] * HamF[0][1] - GnR[1][1] * HamF[1][1];
-
-    // Calculate current density, and components of spin current
-    t[0] = real(MatrixBuffer[0][0] + MatrixBuffer[1][1]); // Charge current density
-    t[1] = real(MatrixBuffer[1][0] + MatrixBuffer[0][1]);
-    t[2] = real(1.0i * MatrixBuffer[0][1] - 1.0i * MatrixBuffer[1][0]);
-    t[3] = real(MatrixBuffer[0][0] - MatrixBuffer[1][1]); // z-component of spin current density
-
-    // Return result
-    return t;
 }

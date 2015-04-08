@@ -6,6 +6,7 @@ import (
     "math"
     "fmt"
     "github.com/negf_mtj/negf_mtj/cmplxSparse"
+    "github.com/negf_mtj/negf_mtj/vecQuad"
     "github.com/negf_mtj/negf_mtj/utils"
 )
 
@@ -85,7 +86,7 @@ func main() {
     fmt.Println("----------------------------------------");
 
     // Create data structure for use with integration functions.
-    ProblemSet := cmplxSparse.CreateIntegStruct();
+    ProblemSet := vecQuad.CreateIntegStruct();
 
     // Initialize a base matrix template
     HamBuffer := cmplxSparse.New();
@@ -129,7 +130,7 @@ func main() {
     // TODO: integrate over mode energies
     // i.e. We should integrate over the region E_mode = [0, +inf)
     E_mode := 0.0;
-    ProbDup := cmplxSparse.CreateIntegStruct();
+    ProbDup := vecQuad.CreateIntegStruct();
     ProbDup.CopyIntegStruct(ProblemSet);
     currents := ProbDup.NEGF_ModeIntegFunc(E_mode);
 
