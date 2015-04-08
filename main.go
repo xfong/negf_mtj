@@ -129,10 +129,7 @@ func main() {
 
     // TODO: integrate over mode energies
     // i.e. We should integrate over the region E_mode = [0, +inf)
-    E_mode := 0.0;
-    ProbDup := vecQuad.CreateIntegStruct();
-    ProbDup.CopyIntegStruct(ProblemSet);
-    currents := ProbDup.NEGF_ModeIntegFunc(E_mode);
+    currents := ProblemSet.NEGF_AutoModeInteg();
 
     for idx0 := 0; idx0 < len(currents); idx0++ {
         fmt.Println("currents[", idx0, "] =", currents[idx0]);
