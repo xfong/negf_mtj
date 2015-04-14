@@ -120,7 +120,7 @@ func (s *IntegStruct) SetMu( ) {
 }
 
 // This function is called to perform integration over mode energies.
-func (s *IntegStruct) NEGF_AutoModeInteg() *[4]float64 {
+func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     ProbDup := CreateIntegStruct();
     ProbDup.CopyIntegStruct(s);
     E_mode := 0.0;
@@ -131,9 +131,9 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[4]float64 {
 
 // TODO: inside this function, we need to integrate over energy. This integration should call the
 // function NEGF_EnergyIntegFunc
-func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[4]float64 {
+func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     // Initialize return value
-    t := new([4]float64);
+    //t_result, errbnd := new([4]float64), new([4]float64);
     s.SetMode(E_mode);
 
     // TODO: Begin integration over energy space
@@ -141,16 +141,18 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[4]float64 {
     fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
     // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
     // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
-    t = s.NEGF_EnergyIntegFunc(0.0);
+    t_result, errbnd := IntegralCalc2Inf(s.NEGF_EnergyIntegFunc, math.Abs(0.5*s.V_MTJ), 4);
 
+    fmt.Printf("Modal I vector = [ %g,  %g,  %g,  %g ]\n\n", t_result[0], t_result[1], t_result[2], t_result[3]);
+    fmt.Printf("I vector errors = [ %g,  %g,  %g,  %g ]\n\n", errbnd[0], errbnd[1], errbnd[2], errbnd[3]);
     // Return result
-    return t;
+    return &t_result;
 }
 
 // This function is called during integration over energies.
-func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[4]float64 {
+func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     // Initialize the return value
-    t := new([4]float64);
+    t := make([]float64, 4);
 
     // Get t0 on left and right of Hamiltonian matrix
     MatrixSize := len(s.Hamiltonian.Data);
@@ -289,7 +291,7 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[4]float64 {
     t[3] = real(MatrixBuffer[0][0] - MatrixBuffer[1][1]); // z-component of spin current density
 
     // Return result
-    return t;
+    return &t;
 }
 
 /*
