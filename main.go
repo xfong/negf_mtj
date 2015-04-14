@@ -129,8 +129,9 @@ func main() {
 
     // TODO: integrate over mode energies
     // i.e. We should integrate over the region E_mode = [0, +inf)
-    currents := ProblemSet.NEGF_AutoModeInteg();
-
+    currentsPtr := ProblemSet.NEGF_AutoModeInteg();
+    currents := *currentsPtr;
+    
     for idx0 := 0; idx0 < len(currents); idx0++ {
         fmt.Println("currents[", idx0, "] =", currents[idx0]);
     }

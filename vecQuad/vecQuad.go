@@ -305,11 +305,11 @@ func IntegralCalc2Inf(f func(float64) *[]float64, a float64, expectSize int) (q,
     // Generate 10 subintervals first
     nsubs := 10;
     var (
-        subs, qsubs, errsubs, xx                             	[][]float64;
-        qsubsk, errsubsk, t, w, fxj, q_ok, err_ok, err_not_ok	[]float64;
-        fTmp                                                    *[]float64;
-        NNodes, nleft                                           int;
-        too_close                                               bool;
+        subs, qsubs, errsubs, xx                                                [][]float64;
+        qsubsk, errsubsk, t, w, fxj, q_ok, err_ok, err_not_ok, midpts, halfh	[]float64;
+        fTmp                                                                    *[]float64;
+        NNodes, nleft                                                           int;
+        too_close                                                               bool;
     );
     fxj = make([]float64, expectSize);
     // Set up buffer for accumulating results over one subinterval
@@ -321,10 +321,6 @@ func IntegralCalc2Inf(f func(float64) *[]float64, a float64, expectSize int) (q,
     subs = make([][]float64, 2);
     subs[0] = make([]float64, nsubs);
     subs[1] = make([]float64, nsubs);
-
-    // midpts[nn] and halfh[nn] stores the midpts and length of the nn-th
-    // subinterval, respectively.
-    midpts, halfh := make([]float64, nsubs), make([]float64, nsubs);
 
     // Set up arrays for the first subinterval
     subs[0][0] = 0.0;
@@ -354,12 +350,17 @@ func IntegralCalc2Inf(f func(float64) *[]float64, a float64, expectSize int) (q,
         // subinterval. subs and nsubs are updated at the end of every
         // iteration. Hence, we need to compute the midpoints and lengths
         // of every subinterval at the beginning of the iteration.
+        // midpts[nn] and halfh[nn] stores the midpts and length of the nn-th
+        // subinterval, respectively.
+        midpts, halfh = make([]float64, nsubs), make([]float64, nsubs);
+
         for idx0 := 0; idx0 < nsubs; idx0++ {
             midpts[idx0], halfh[idx0] = 0.5*(subs[0][idx0] + subs[1][idx0]), 0.5*(subs[1][idx0] - subs[0][idx0]);
         }
 
         // Set up arrays for storing results over each subinterval
         qsubs, errsubs = make([][]float64, nsubs), make([][]float64, nsubs);
+        fmt.Println("New iteration: nsubs = ", nsubs);
         for idx0 := 0; idx0 < nsubs; idx0++ {
             qsubs[idx0], errsubs[idx0] = make([]float64, expectSize), make([]float64, expectSize);
         }
@@ -475,6 +476,7 @@ func IntegralCalc2Inf(f func(float64) *[]float64, a float64, expectSize int) (q,
         // Dividing subintervals before reiterating
         nsubs = 2 * nleft;
         if (nsubs > MaxIntervalCount ) {
+            fmt.Println("ERROR: MaxIntervalCount reached!");
             errors.New("ERROR: MaxIntervalCount reached!");
             break;
         }
