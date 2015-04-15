@@ -10,7 +10,7 @@ import (
 func main() {
 	fmt.Println("Testing vecQuad package...\n\n");
 
-	n := float64(0.0);
+	n, m := float64(0.0), float64(0.0);
 
 	// Test integrate exp(-x) over [0, inf)
 	testExp0(n)
@@ -29,6 +29,22 @@ func main() {
 	n = 0.0;
 	testExp2(n)
 	fmt.Printf("\n");
+
+	n, m = 0.0, 1.0;
+	testExp3(n, m);
+	fmt.Printf("\n");
+
+	testExp4(n, m);
+	fmt.Printf("\n");
+
+	n, m = 2.0, 3.0;
+	testExp5(n, m);
+	fmt.Printf("\n");
+
+	n, m = 1.5, 3.0;
+	testExp6(n, m);
+	fmt.Printf("\n");
+
 }
 
 func SimpleExp( n float64 ) *[]float64 {
@@ -38,13 +54,13 @@ func SimpleExp( n float64 ) *[]float64 {
 }
 
 func SimpleQuadr( n float64 ) *[]float64 {
-	test := make([]float64), 1);
+	test := make([]float64, 1);
 	test[0] = n*n;
 	return &test
 }
 
 func SimpleLinear( n float64 ) *[]float64 {
-	test := make([]float64), 1);
+	test := make([]float64, 1);
 	test[0] = 2.0*n;
 	return &test
 }
@@ -115,17 +131,42 @@ func testExp2(n float64) {
 }
 
 func testExp3(n, m float64) {
-	answer, errbnd := vecQuad.IntegralCalcA2B(VectorizedFunc2, n, m, 4);
-	fmt.Println("Integral of 1/Exp(x) from ", n, " to ", m, " =", answer[0]);
-	fmt.Println("Actual result should be =", math.Exp(-1.0*n) - math.Exp(-1.0*m)); //
+	answer, errbnd := vecQuad.IntegralCalcA2B(SimpleLinear, n, m, 1);
+	fmt.Println("Integral of x from ", n, " to ", m, " =", answer[0]);
+	fmt.Println("Actual result should be =", (m*m - n*n));
+	fmt.Println("Error of integral =", errbnd);
+}
+
+func testExp4(n, m float64) {
+	answer, errbnd := vecQuad.IntegralCalcA2B(SimpleQuadr, n, m, 1);
+	fmt.Println("Integral of x^2 from ", n, " to ", m, " =", answer[0]);
+	fmt.Println("Actual result should be =", float64(1.0/3.0) * (m*m*m - n*n*n));
+	fmt.Println("Error of integral =", errbnd);
+}
+
+func testExp5(n, m float64) {
+	answer, errbnd := vecQuad.IntegralCalcA2B(VectorizedFunc2, n, m, 2);
+	fmt.Println("Integral of x^2 from ", n, " to ", m, " =", answer[0]);
+	fmt.Println("Actual result should be =", float64(1.0/3.0)*(m*m*m - n*n*n));
 	fmt.Println("Error of first integral =", errbnd[0]);
-	fmt.Println("Integral of 1/Exp(2*x) from 0 to inf =", answer[1]);
-	fmt.Println("Actual result should be =", 0.5*math.Exp(-2.0*n));
+	fmt.Println("Integral of 3*x from ", n, " to ", m, " =", answer[1]);
+	fmt.Println("Actual result should be =", float64(1.5) * (m*m - n*n));
 	fmt.Println("Error of second integral =", errbnd[1]);
-	fmt.Println("Integral of 1/(Exp(0.5*x*x) * Sqrt(2.0*Pi)) from 0 to inf =", answer[2]);
-	fmt.Println("Actual result should be =", float64(0.5));
+}
+
+func testExp6(n, m float64) {
+	answer, errbnd := vecQuad.IntegralCalcA2B(VectorizedFunc3, n, m, 4);
+	fmt.Println("Integral of 1/Exp(x) from ", n, " to ", m, " =", answer[0]);
+	fmt.Println("Actual result should be =", math.Exp(-1.0*n) - math.Exp(-1.0*m));
+	fmt.Println("Error of first integral =", errbnd[0]);
+	fmt.Println("Integral of 2*x from ", n, " to ", m, " =", answer[1]);
+	fmt.Println("Actual result should be =", (m*m - n*n));
+	fmt.Println("Error of second integral =", errbnd[1]);
+	fmt.Println("Integral of x^3 from ", n, " to ", m, " =", answer[2]);
+	fmt.Println("Actual result should be =", float64(0.25)*(m*m*m*m - n*n*n*n));
 	fmt.Println("Error of third integral =", errbnd[2]);
-	fmt.Println("Integral of 1/Exp(3*x) from 0 to inf =", answer[3]);
-	fmt.Println("Actual result should be =", float64(1.0/3.0)*math.Exp(-3.0*n));
+	fmt.Println("Integral of 1/Exp(2*x) from ", n, " to ", m, " =", answer[3]);
+	fmt.Println("Actual result should be =", float64(0.5)*(math.Exp(-2.0*n) - math.Exp(-2.0*m)));
 	fmt.Println("Error of fourth integral =", errbnd[3]);
 }
+

@@ -328,12 +328,12 @@ func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (
     subs[1] = make([]float64, nsubs);
 
     // Set up arrays for the first subinterval
-    subs[0][0] = 0.0;
-    subs[1][0] = 0.1;
+    subs[0][0] = -1.0;
+    subs[1][0] = -0.8;
 
     // Finish setting up for the rest of the subintervals
     for idx0 := 1; idx0 < nsubs; idx0++ {
-        subs[1][idx0] = subs[1][idx0-1] + 0.1;
+        subs[1][idx0] = subs[1][idx0-1] + 0.2;
         subs[0][idx0] = subs[1][idx0-1];
     }
 
