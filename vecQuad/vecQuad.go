@@ -150,7 +150,41 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
     // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
     // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
-    t_result, errbnd := IntegralCalc2Inf(s.NEGF_EnergyIntegFunc, math.Abs(0.5*s.V_MTJ), 4);
+    subInterval := make([]float64, 2);
+    subInterval[0] = math.Abs(0.5*s.V_MTJ);
+    subInterval[1] = math.Abs(0.5*s.V_MTJ) + 0.1;
+
+    t_result0, errbnd := IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
+
+    t_result := make([]float64, 4);
+    for idx0 := range t_result0 {
+        t_result[idx0] = t_result0[idx0];
+    }
+
+    for {
+        if (subInterval[1] < s.E_Fermi) {
+            subInterval[0] = subInterval[1];
+            subInterval[1] += 0.1;
+            t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
+            for idx0 := range t_result0 {
+                t_result[idx0] += t_result0[idx0];
+            }
+        } else {
+            subInterval[0] = subInterval[1];
+            subInterval[1] += 0.1;
+            t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
+            flagTest := 0;
+            for idx0 := range t_result0 {
+                if (math.Abs(t_result0[idx0]) >= math.Abs(t_result[idx0])*1e-5) {
+                    flagTest++;
+                }
+                t_result[idx0] += t_result0[idx0];
+            }
+            if (flagTest == 0) {
+                break;
+            }
+        }
+    }
 
     fmt.Printf("Modal I vector = [ %g,  %g,  %g,  %g ]\n\n", t_result[0], t_result[1], t_result[2], t_result[3]);
     fmt.Printf("I vector errors = [ %g,  %g,  %g,  %g ]\n\n", errbnd[0], errbnd[1], errbnd[2], errbnd[3]);
@@ -365,7 +399,7 @@ func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (
 
         // Set up arrays for storing results over each subinterval
         qsubs, errsubs = make([][]float64, nsubs), make([][]float64, nsubs);
-        fmt.Println("New iteration: nsubs = ", nsubs);
+
         for idx0 := 0; idx0 < nsubs; idx0++ {
             qsubs[idx0], errsubs[idx0] = make([]float64, expectSize), make([]float64, expectSize);
         }
