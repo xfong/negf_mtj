@@ -8,6 +8,7 @@ import (
     "errors"
 	"fmt"
 	"github.com/negf_mtj/negf_mtj/cmplxSparse"
+	"github.com/negf_mtj/negf_mtj/utils"
 )
 
 type IntegStruct struct {
@@ -19,6 +20,7 @@ type IntegStruct struct {
     N_fmL, N_ox, N_fmR      	int;
     BT_Mat_L, BT_Mat_R      	*[2][2]complex128;
     Hamiltonian             	*cmplxSparse.SparseMat
+    ECurrFactor, SCurrFactor    float64;
 }
 
 var (
@@ -120,6 +122,8 @@ func (s *IntegStruct) SetParams( V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_
     s.m_fmL, s.m_ox, s.m_fmR = m_fmL, m_ox, m_fmR;
     s.N_fmL, s.N_ox, s.N_fmR = N_fmL, N_ox, N_fmR;
     s.BT_Mat_L, s.BT_Mat_R = BT_Mat_L, BT_Mat_R;
+    s.ECurrFactor = ((m_fmL * utils.M0 * utils.Echarge / utils.Hplanck) / utils.Hbar) * utils.ECurrFactor;
+    s.SCurrFactor = ((m_fmL * utils.M0 * utils.Echarge / utils.Hplanck) / utils.Hbar) * utils.SCurrFactor;
 }
 
 func (s *IntegStruct) SetMu( ) {
@@ -132,8 +136,12 @@ func (s *IntegStruct) SetMu( ) {
 func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     ProbDup := CreateIntegStruct();
     ProbDup.CopyIntegStruct(s);
+    ProbDup.SetHamiltonian(cmplxSparse.AddVoltagePotential(ProbDup.N_fmL, ProbDup.N_ox, ProbDup.V_MTJ, ProbDup.Hamiltonian))
+
+    fmt.Println("ECurrFactor, SCurrFactor = ", s.ECurrFactor, s.SCurrFactor);
     E_mode := 0.0;
     fmt.Println("Checking internal structure: Nodes[", len(Nodes), "], Wt15[", len(Wt15), "], Wt7[", len(Wt7), "]");
+    // TODO: Need to integrate over modes
     t := ProbDup.NEGF_ModeIntegFunc(E_mode);
     return t;
 }
@@ -154,28 +162,28 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     subInterval[0] = math.Abs(0.5*s.V_MTJ);
     subInterval[1] = math.Abs(0.5*s.V_MTJ) + 0.1;
 
-    t_result0, errbnd := IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
+    t_result, t_result0, errbnd := make([]float64, 4), make([]float64, 4), make([]float64, 4);
+    t_result[0], t_result[1], t_result[2], t_result[3] = 0.0, 0.0, 0.0, 0.0;
+    t_result0[0], t_result0[1], t_result0[2], t_result0[3] = 0.0, 0.0, 0.0, 0.0;
 
-    t_result := make([]float64, 4);
-    for idx0 := range t_result0 {
-        t_result[idx0] = t_result0[idx0];
-    }
+    ESteps := float64(0.1);
+    IntRelTol := float64(1e-5);
 
     for {
-        if (subInterval[1] < s.E_Fermi) {
+        if (subInterval[1] <= (s.E_Fermi+math.Abs(0.5*s.V_MTJ)+0.4)) {
             subInterval[0] = subInterval[1];
-            subInterval[1] += 0.1;
+            subInterval[1] += ESteps;
             t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
             for idx0 := range t_result0 {
                 t_result[idx0] += t_result0[idx0];
             }
         } else {
             subInterval[0] = subInterval[1];
-            subInterval[1] += 0.1;
+            subInterval[1] += ESteps;
             t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
             flagTest := 0;
             for idx0 := range t_result0 {
-                if (math.Abs(t_result0[idx0]) >= math.Abs(t_result[idx0])*1e-5) {
+                if (math.Abs(t_result0[idx0]) >= math.Abs(t_result[idx0])* IntRelTol) {
                     flagTest++;
                 }
                 t_result[idx0] += t_result0[idx0];
@@ -332,6 +340,11 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     t[1] = real(MatrixBuffer[1][0] + MatrixBuffer[0][1]);
     t[2] = real(1.0i * MatrixBuffer[0][1] - 1.0i * MatrixBuffer[1][0]);
     t[3] = real(MatrixBuffer[0][0] - MatrixBuffer[1][1]); // z-component of spin current density
+
+    t[0] *= s.ECurrFactor;
+    t[1] *= s.SCurrFactor;
+    t[2] *= s.SCurrFactor;
+    t[3] *= s.SCurrFactor;
 
     // Return result
     return &t;

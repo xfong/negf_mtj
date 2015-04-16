@@ -43,20 +43,20 @@ func main() {
     E_Fermi = 2.25;
 
     fmt.Println("----------------------------------------");
-    fmt.Printf("Ub = %g, E_split_L = %g, E_split_R = %g\n", Ub, E_split_L, E_split_R);
+    fmt.Printf("Ub = %.15g, E_Fermi = %.15g, E_split_L = %.15g, E_split_R = %.15g\n", Ub, E_Fermi, E_split_L, E_split_R);
 
     // Configuration parameters
     th_F, ph_F = utils.Pi/1.0, 0.0;    
     th_H, ph_H = 0.0, 0.0;
-    Vmtj, Temperature = 0.01, 300.0;
+    Vmtj, Temperature = 4.00, 300.0;
 
     fmt.Println("----------------------------------------");
     fmt.Println("Left FM:");
-    fmt.Printf("th = %g, ph = %g\n", th_F, ph_F);
+    fmt.Printf("th = %.15g, ph = %.15g\n", th_F, ph_F);
 
     fmt.Println("----------------------------------------");
     fmt.Println("Right FM:")
-    fmt.Printf("th = %g, ph = %g\n", th_H, ph_H);
+    fmt.Printf("th = %.15g, ph = %.15g\n", th_H, ph_H);
     fmt.Println("----------------------------------------");
 
 /*
@@ -73,7 +73,7 @@ func main() {
     N_fm_L := int(d_fm_L/aSpace);
     N_fm_R := int(d_fm_R/aSpace);
     N_ox := int(d_ox/aSpace) - 1;
-    fmt.Printf("N_ox = %d, N_fm_L = %d, N_fm_R = %d\n",N_ox, N_fm_L, N_fm_R);
+    fmt.Printf("Grid spacing = %.15g, N_ox = %d, N_fm_L = %d, N_fm_R = %d\n", aSpace, N_ox, N_fm_L, N_fm_R);
     fmt.Println("----------------------------------------");
 
     t_base := utils.Hbar*utils.Hbar/2/utils.Echarge/utils.M0/aSpace/aSpace;
@@ -81,8 +81,10 @@ func main() {
     t_fm_R := t_base/m_fm_R;
     t_ox := t_base/m_ox;
 
-    fmt.Printf("t_fm_L = %f, t_ox = %f, t_fm_R = %f\n",t_fm_L, t_ox, t_fm_R);
-    fmt.Printf("2t_fm_L = %f, 2t_ox = %f, 2t_fm_R = %f\n",2*t_fm_L, 2*t_ox, 2*t_fm_R);
+    fmt.Printf("m_fm_L = %.15g, m_ox = %.15g, m_fm_R = %.15g\n", m_fm_L, m_ox, m_fm_R);
+    fmt.Println("----------------------------------------");
+    fmt.Printf("t_fm_L = %.15g, t_ox = %.15g, t_fm_R = %.15g\n", t_fm_L, t_ox, t_fm_R);
+    fmt.Printf("2t_fm_L = %.15g, 2t_ox = %.15g, 2t_fm_R = %.15g\n", 2*t_fm_L, 2*t_ox, 2*t_fm_R);
     fmt.Println("----------------------------------------");
 
     // Create data structure for use with integration functions.
@@ -110,7 +112,7 @@ func main() {
     cmplxSparse.ScaleRangeSparseMatrix(2*(N_fm_L+N_ox+2), 2*(N_fm_L+N_ox+N_fm_R)+3, -2, complex(t_fm_R, 0.0), HamBuffer);
 
     // Include barrier
-    cmplxSparse.AddBarrierProfile(N_fm_L, N_ox, -1.0*Ub, HamBuffer);
+    cmplxSparse.AddBarrierProfile(N_fm_L, N_ox, -1.0*(Ub+E_Fermi), HamBuffer);
 
     // Include band splitting to left FM contact
     mx_, my_, mz_ := math.Sin(th_F)*math.Cos(ph_F), math.Sin(th_F)*math.Sin(ph_F), math.Cos(th_F);
