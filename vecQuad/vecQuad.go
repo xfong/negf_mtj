@@ -166,9 +166,9 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     t_result[0], t_result[1], t_result[2], t_result[3] = 0.0, 0.0, 0.0, 0.0;
     t_result0[0], t_result0[1], t_result0[2], t_result0[3] = 0.0, 0.0, 0.0, 0.0;
 
-    ESteps := float64(0.1);
-    IntRelTol := float64(1e-5);
-
+    ESteps, IntRelTol := float64(0.1), float64(1e-5);
+    CountIterations := 0;
+    
     for {
         if (subInterval[1] <= (s.E_Fermi+math.Abs(0.5*s.V_MTJ)+0.4)) {
             subInterval[0] = subInterval[1];
@@ -182,13 +182,17 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
             subInterval[1] += ESteps;
             t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
             flagTest := 0;
+            CountIterations++
             for idx0 := range t_result0 {
                 if (math.Abs(t_result0[idx0]) >= math.Abs(t_result[idx0])* IntRelTol) {
                     flagTest++;
                 }
                 t_result[idx0] += t_result0[idx0];
             }
-            if (flagTest == 0) {
+            if ((flagTest == 0) || (CountIterations > 128)) {
+                if (CountIterations > 128) {
+                    fmt.Println("Iteration count reached maximum!");
+                }
                 break;
             }
         }
