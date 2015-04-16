@@ -65,9 +65,10 @@ func CreateIntegStruct() *IntegStruct {
 // to perform the integration over the interval [a, inf). However, we map the
 // entire function down to the inteval [0, 1]. In the first step, we map
 // [a, inf) -> [0, inf). Finally, we map [0, inf) -> [0, 1]
-func IntervalA2InfTransform(A, t float64) (x, w float64) {
+func IntervalA2InfTransform(A *[]float64, t float64) (x, w float64) {
     tt := t / (1 - t);
-    x = A + tt*tt;
+    ValA := *A;
+    x = ValA[0] + tt*tt;
     w = 2 * tt / ((1 - t) * (1 - t));
     return;
 }
@@ -75,9 +76,10 @@ func IntervalA2InfTransform(A, t float64) (x, w float64) {
 // Function needed to perform quadrature. The idea is that numerically, we want
 // to perform the integration over the interval [a, b]. However, we map the
 // entire function down to the inteval [-1, 1].
-func IntervalA2BTransform(A, B, t float64) (x, w float64) {
-    x = 0.25*(B - A) * t * (3 - t*t) + 0.5*(A+B);
-    w = 0.75 * (B - A) * (1 - t*t);
+func IntervalA2BTransform(A *[]float64, t float64) (x, w float64) {
+    ValA := *A;
+    x = 0.25*(ValA[1] - ValA[0]) * t * (3 - t*t) + 0.5*(ValA[0]+ValA[1]);
+    w = 0.75 * (ValA[1] - ValA[0]) * (1 - t*t);
     return;
 }
 
@@ -156,31 +158,31 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     // TODO: Begin integration over energy space
 
     fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
+    ESteps, IntRelTol := float64(0.1), float64(1e-5);
+    CountIterations := 0;
+    
     // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
     // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
     subInterval := make([]float64, 2);
     subInterval[0] = math.Abs(0.5*s.V_MTJ);
-    subInterval[1] = math.Abs(0.5*s.V_MTJ) + 0.1;
+    subInterval[1] = math.Abs(0.5*s.V_MTJ) + ESteps;
 
     t_result, t_result0, errbnd := make([]float64, 4), make([]float64, 4), make([]float64, 4);
     t_result[0], t_result[1], t_result[2], t_result[3] = 0.0, 0.0, 0.0, 0.0;
     t_result0[0], t_result0[1], t_result0[2], t_result0[3] = 0.0, 0.0, 0.0, 0.0;
 
-    ESteps, IntRelTol := float64(0.1), float64(1e-5);
-    CountIterations := 0;
-    
     for {
         if (subInterval[1] <= (s.E_Fermi+math.Abs(0.5*s.V_MTJ)+0.4)) {
             subInterval[0] = subInterval[1];
             subInterval[1] += ESteps;
-            t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
+            t_result0, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
             for idx0 := range t_result0 {
                 t_result[idx0] += t_result0[idx0];
             }
         } else {
             subInterval[0] = subInterval[1];
             subInterval[1] += ESteps;
-            t_result0, errbnd = IntegralCalcA2B(s.NEGF_EnergyIntegFunc, subInterval[0], subInterval[1], 4);
+            t_result0, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
             flagTest := 0;
             CountIterations++
             for idx0 := range t_result0 {
@@ -198,8 +200,8 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         }
     }
 
-    fmt.Printf("Modal I vector = [ %g,  %g,  %g,  %g ]\n\n", t_result[0], t_result[1], t_result[2], t_result[3]);
-    fmt.Printf("I vector errors = [ %g,  %g,  %g,  %g ]\n\n", errbnd[0], errbnd[1], errbnd[2], errbnd[3]);
+    fmt.Printf("Modal I vector = [ %.15g,  %.15g,  %.15g,  %.15g ]\n\n", t_result[0], t_result[1], t_result[2], t_result[3]);
+    fmt.Printf("I vector errors = [ %.15g,  %.15g,  %.15g,  %.15g ]\n\n", errbnd[0], errbnd[1], errbnd[2], errbnd[3]);
     // Return result
     return &t_result;
 }
@@ -354,10 +356,13 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     return &t;
 }
 
-// Function for performing integration over the interval [a, b]
-// using Gauss-Kronrod quadrature (7-point estimator,
-// 15 point corrector). This is used in MATLAB as well.
-func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (q, errbnd []float64) {
+// Function for performing integration over the interval [a, b] using
+// Gauss-Kronrod quadrature (7-point estimator, 15 point corrector). This
+// is used in MATLAB as well. If the array IntegLimits contains only one
+// element, then the integration is over the interval [a, inf). When
+// integrating to infinity, the interval is first mapped to [0, inf), and
+// then to [0, 1] i.e, [a, inf) -> [0, inf) -> [0, 1].
+func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize int) (q, errbnd []float64) {
     // Generate 10 subintervals first
     nsubs := 10;
     var (
@@ -379,12 +384,19 @@ func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (
     subs[1] = make([]float64, nsubs);
 
     // Set up arrays for the first subinterval
-    subs[0][0] = -1.0;
-    subs[1][0] = -0.8;
+    SubStart, SubStep, pathlen := float64(-1.0), float64(0.2), float64(2.0);
+    TransformFunc := IntervalA2BTransform;
+    IntegLimitsArr := *IntegLimits;
+    if (len(IntegLimitsArr) < 2) {
+        SubStart, SubStep, pathlen = 0.0, 0.1, 1.0;
+        TransformFunc = IntervalA2InfTransform;
+    }
+    subs[0][0] = SubStart;
+    subs[1][0] = SubStart + SubStep;
 
     // Finish setting up for the rest of the subintervals
     for idx0 := 1; idx0 < nsubs; idx0++ {
-        subs[1][idx0] = subs[1][idx0-1] + 0.2;
+        subs[1][idx0] = subs[1][idx0-1] + SubStep;
         subs[0][idx0] = subs[1][idx0-1];
     }
 
@@ -440,7 +452,7 @@ func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (
             for idx1 := range Nodes {
                 xx[idx1] = make([]float64, nsubs);
                 xx[idx1][idx0] = Nodes[idx1]*halfh[idx0] + midpts[idx0];
-                t[idx1], w[idx1] = IntervalA2BTransform(a, b, xx[idx1][idx0]);
+                t[idx1], w[idx1] = TransformFunc(IntegLimits, xx[idx1][idx0]);
                 fTmp = f(t[idx1]);
                 fxj = *fTmp;
                 for idx2 := range qsubsk {
@@ -477,10 +489,10 @@ func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (
         tmpSub[0] = make([]float64, 1);
         tmpSub[1] = make([]float64, 1);
 
-        tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), AbsTol;
+        tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), 2.0*AbsTol/pathlen;
         for idx0 := range q {
             tol[idx0] = RelTol * math.Abs(q[idx0]);
-            tolr[idx0] = tol[idx0];
+            tolr[idx0] = 2.0*tol[idx0]/pathlen;
         }
         for idx0 := 0; idx0 < nsubs; idx0++ {
             abserrsubsk := make([]float64, expectSize);
@@ -551,205 +563,6 @@ func IntegralCalcA2B(f func(float64) *[]float64, a, b float64, expectSize int) (
     }
     return;
 }
-
-// Function for performing integration over the interval [a, inf)
-// using Gauss-Kronrod quadrature (7-point estimator,
-// 15 point corrector). This is used in MATLAB as well.
-func IntegralCalc2Inf(f func(float64) *[]float64, a float64, expectSize int) (q, errbnd []float64) {
-    // Generate 10 subintervals first
-    nsubs := 10;
-    var (
-        subs, qsubs, errsubs, xx                                                [][]float64;
-        qsubsk, errsubsk, t, w, fxj, q_ok, err_ok, err_not_ok, midpts, halfh	[]float64;
-        fTmp                                                                    *[]float64;
-        NNodes, nleft                                                           int;
-        too_close                                                               bool;
-    );
-    fxj = make([]float64, expectSize);
-    // Set up buffer for accumulating results over one subinterval
-    qsubsk, errsubsk = make([]float64, expectSize), make([]float64, expectSize);
-
-    // subs[0][nn] and subs[1][nn] stores the start and end points of the
-    // nn-th subinterval, respectively. In the first step, we generate 10
-    // subintervals in [0, 1].
-    subs = make([][]float64, 2);
-    subs[0] = make([]float64, nsubs);
-    subs[1] = make([]float64, nsubs);
-
-    // Set up arrays for the first subinterval
-    subs[0][0] = 0.0;
-    subs[1][0] = 0.1;
-
-    // Finish setting up for the rest of the subintervals
-    for idx0 := 1; idx0 < nsubs; idx0++ {
-        subs[1][idx0] = subs[1][idx0-1] + 0.1;
-        subs[0][idx0] = subs[1][idx0-1];
-    }
-
-    // Initialize more buffers
-    q, q_ok, err_ok, err_not_ok, errbnd = make([]float64, expectSize), make([]float64, expectSize), make([]float64, expectSize), make([]float64, expectSize), make([]float64, expectSize);
-    for idx0 := range q {
-        q[idx0], q_ok[idx0], err_ok[idx0], err_not_ok[idx0], errbnd[idx0] = 0.0, 0.0, 0.0, 0.0, 0.0;
-    }
-
-    // Begin "infinite" loop. Loop breaks out when error tolerances are met
-    // or when the interation process meets/fails certain conditions.
-    for {
-
-        // Update q with the previous OK value before going through loop
-        for idx0 := range q_ok {
-            q[idx0] = q_ok[idx0];
-        }
-        // Set up arrays defining midpoints and half path lengths of every
-        // subinterval. subs and nsubs are updated at the end of every
-        // iteration. Hence, we need to compute the midpoints and lengths
-        // of every subinterval at the beginning of the iteration.
-        // midpts[nn] and halfh[nn] stores the midpts and length of the nn-th
-        // subinterval, respectively.
-        midpts, halfh = make([]float64, nsubs), make([]float64, nsubs);
-
-        for idx0 := 0; idx0 < nsubs; idx0++ {
-            midpts[idx0], halfh[idx0] = 0.5*(subs[0][idx0] + subs[1][idx0]), 0.5*(subs[1][idx0] - subs[0][idx0]);
-        }
-
-        // Set up arrays for storing results over each subinterval
-        qsubs, errsubs = make([][]float64, nsubs), make([][]float64, nsubs);
-        fmt.Println("New iteration: nsubs = ", nsubs);
-        for idx0 := 0; idx0 < nsubs; idx0++ {
-            qsubs[idx0], errsubs[idx0] = make([]float64, expectSize), make([]float64, expectSize);
-        }
-
-        // Set up arrays storing the actual nodes at which we are
-        // evaluating the results
-        NNodes = len(Nodes);
-        xx = make([][]float64, NNodes);
-        t, w = make([]float64, NNodes), make([]float64, NNodes);
-
-        // Begin going through every subinterval to calculate integral over
-        // each of them
-        for idx0 := 0; idx0 < nsubs; idx0++ {
-            // Zero the buffer prior to scanning through the nodes
-            for idx1 := range qsubsk {
-                qsubsk[idx1] = 0.0;
-                errsubsk[idx1] = 0.0;
-            }
-
-            // For each subinterval, scan through the nodes to compute values
-            for idx1 := range Nodes {
-                xx[idx1] = make([]float64, nsubs);
-                xx[idx1][idx0] = Nodes[idx1]*halfh[idx0] + midpts[idx0];
-                t[idx1], w[idx1] = IntervalA2InfTransform(a, xx[idx1][idx0]);
-                fTmp = f(t[idx1]);
-                fxj = *fTmp;
-                for idx2 := range qsubsk {
-                    qsubsk[idx2] += fxj[idx2] * w[idx1] * Wt15[idx1] * halfh[idx0];
-                    errsubsk[idx2] += fxj[idx2] * w[idx1] * EWts[idx1] * halfh[idx0];
-                }
-            }
-            // At this point, we have the estimated integral and the error
-            // for the subnterval. So store into the bigger buffer
-            for idx1 := range qsubsk {
-                qsubs[idx0][idx1] = qsubsk[idx1];
-                errsubs[idx0][idx1] = errsubsk[idx1];
-                q[idx1] += qsubsk[idx1];
-            }
-
-            // Terminate and exit if the spacing is too close
-            too_close = checkSpacing(&t);
-            if too_close {
-                break;
-            }
-        }
-        // Terminate and exit if the spacing is too close. The previous
-        // too_close check breaks out of the scan through subintervals.
-        // This check here breaks out of the entire "infinite" for loop
-        if too_close {
-            break;
-        }
-
-        // Scan through the subintervals and reiterate for those
-        // subintervals that are insufficiently accurate
-        nleft = 0;
-        tmpSub := make([][]float64, 2);
-        tmpMids := make([]float64, 1);
-        tmpSub[0] = make([]float64, 1);
-        tmpSub[1] = make([]float64, 1);
-
-        tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), 2.0*AbsTol;
-        for idx0 := range q {
-            tol[idx0] = RelTol * math.Abs(q[idx0]);
-            tolr[idx0] = 2.0 * tol[idx0];
-        }
-        for idx0 := 0; idx0 < nsubs; idx0++ {
-            abserrsubsk := make([]float64, expectSize);
-            flagSum0 := int(0);
-            for idx1 := range q {
-                abserrsubsk[idx1] = math.Abs(errsubs[idx0][idx1]);
-                if ((abserrsubsk[idx1] > tolr[idx1] * halfh[idx0]) && (abserrsubsk[idx1] > tola * halfh[idx0])) {
-                    flagSum0++;
-                }
-            }
-            if (flagSum0 == 0) {
-                for idx1 := 0; idx1 < expectSize; idx1++ {
-                    q_ok[idx1] += qsubs[idx0][idx1];
-                    err_ok[idx1] += errsubs[idx0][idx1];
-                }
-            } else {
-                if (nleft == 0) {
-                    tmpSub[0][0] = subs[0][idx0];
-                    tmpSub[1][0] = subs[1][idx0];
-                    tmpMids[0] = midpts[idx0];
-                    nleft = 1;
-                } else {
-                    tmpMids = append(tmpMids, midpts[idx0]);
-                    tmpSub[0] = append(tmpSub[0], subs[0][idx0]);
-                    tmpSub[1] = append(tmpSub[1], subs[1][idx0]);
-                    nleft++;
-                }
-                for idx1 := range err_not_ok {
-                    err_not_ok[idx1] += abserrsubsk[idx1];
-                }
-            }
-        }
-        // By this point, we have figured out the subintervals that failed
-        // tolerance checks. We will divide the subintervals into two and
-        // reiterate the "infinite" for loop.
-        flagSum1 := int(0);
-        for idx0 := range errbnd {
-            errbnd[idx0] = math.Abs(err_ok[idx0]) + err_not_ok[idx0];
-            if ((errbnd[idx0] > tol[idx0]) && (errbnd[idx0] > AbsTol)) {
-                flagSum1++;
-            }
-        }
-
-        // Break out of infinite loop if we are within error bounds.
-        if ((nleft < 1) || (flagSum1 == 0)) {
-            break;
-        }
-
-        // Dividing subintervals before reiterating
-        nsubs = 2 * nleft;
-        if (nsubs > MaxIntervalCount ) {
-            fmt.Println("ERROR: MaxIntervalCount reached!");
-            errors.New("ERROR: MaxIntervalCount reached!");
-            break;
-        }
-        subs_div := make([][]float64, 2);
-        subs_div[0] = make([]float64, nsubs);
-        subs_div[1] = make([]float64, nsubs);
-        for idx0 := 0; idx0 < nleft; idx0++ {
-            targIdxL := idx0*2;
-            targIdxH := targIdxL+1;
-            subs_div[0][targIdxL] = tmpSub[0][idx0];
-            subs_div[1][targIdxL] = tmpMids[idx0];
-            subs_div[0][targIdxH] = tmpMids[idx0];
-            subs_div[1][targIdxH] = tmpSub[1][idx0];
-        }
-        subs = subs_div;
-    }
-    return;
-}
-
 
 // Check to ensure spacing between integration nodes is sufficiently large
 func checkSpacing(t *[]float64) bool {
