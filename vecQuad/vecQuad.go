@@ -33,7 +33,7 @@ func init() {
     InitialIntervalCount = 10;
     MaxIntervalCount = 16384;
     AbsTol = 1e-10;
-    RelTol = 1e-8;
+    RelTol = 1e-6;
     // rule.nodes
     Nodes = [...]float64{ -0.9914553711208126, -0.9491079123427585, -0.8648644233597691, -0.7415311855993944, -0.5860872354676911, -0.4058451513773972, -0.2077849550078985, 0, 0.2077849550078985, 0.4058451513773972, 0.5860872354676911, 0.7415311855993944, 0.8648644233597691, 0.9491079123427585, 0.9914553711208126};
     // rule.HighWeights
@@ -104,6 +104,8 @@ func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
     t.BT_Mat_L = s.BT_Mat_L;
     t.BT_Mat_R = s.BT_Mat_R;
     t.Hamiltonian = s.Hamiltonian;
+    t.ECurrFactor = s.ECurrFactor;
+    t.SCurrFactor = s.SCurrFactor;
     return;
 }
 
@@ -158,47 +160,63 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     // TODO: Begin integration over energy space
 
     fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
-    ESteps, IntRelTol := float64(0.1), float64(1e-5);
+    ESteps, IntRelTol := float64(utils.K_q * s.Temperature), float64(1e-5);
     CountIterations := 0;
     
     // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
     // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
     subInterval := make([]float64, 2);
-    subInterval[0] = math.Abs(0.5*s.V_MTJ);
-    subInterval[1] = math.Abs(0.5*s.V_MTJ) + ESteps;
+    subInterval[0] = s.E_Fermi - math.Abs(0.5*s.V_MTJ);
+    subInterval[1] = s.E_Fermi + math.Abs(0.5*s.V_MTJ);
+    tempLow, tempHigh := subInterval[0], subInterval[1];
+    fmt.Printf("Subinterval = [%.15g, %.15g]\n",subInterval[0], subInterval[1]);
+    IntervalLength := subInterval[1] - subInterval[0];
 
-    t_result, t_result0, errbnd := make([]float64, 4), make([]float64, 4), make([]float64, 4);
+    t_result, t_resultA, t_resultB, errbnd := make([]float64, 4), make([]float64, 4), make([]float64, 4), make([]float64, 4);
     t_result[0], t_result[1], t_result[2], t_result[3] = 0.0, 0.0, 0.0, 0.0;
-    t_result0[0], t_result0[1], t_result0[2], t_result0[3] = 0.0, 0.0, 0.0, 0.0;
+
+    if (math.Abs(IntervalLength) > 0.1) {
+        TotalSubsCount := int(math.Ceil(IntervalLength / 0.1));
+        IntervalStep := IntervalLength / math.Ceil(IntervalLength / 0.1);
+        for idx0 := 0; idx0 < TotalSubsCount; idx0++ {
+            subInterval[1] = subInterval[0] + IntervalStep;
+            t_resultA, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+            subInterval[0] = subInterval[1];
+        }
+        fmt.Printf("Final points = %.15g ?? %.15g\n\n", tempHigh, subInterval[1]);
+    } else {
+        t_result, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+    }
 
     for {
-        if (subInterval[1] <= (s.E_Fermi+math.Abs(0.5*s.V_MTJ)+0.4)) {
-            subInterval[0] = subInterval[1];
-            subInterval[1] += ESteps;
-            t_result0, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
-            for idx0 := range t_result0 {
-                t_result[idx0] += t_result0[idx0];
+        CountIterations++;
+        subInterval[1] = tempLow;
+        subInterval[0] = subInterval[1]-ESteps;
+        t_resultA, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        tempLow = subInterval[0];
+        subInterval[0] = tempHigh;
+        subInterval[1] = subInterval[0]+ESteps;
+        t_resultB, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        tempHigh = subInterval[1];
+
+        flagSum := 0;
+        for idx0 := range t_resultA {
+            t_resultA[idx0] += t_resultB[idx0];
+            if (math.Abs(t_resultA[idx0]) >= math.Abs(t_result[idx0]) * IntRelTol) {
+                flagSum++;
             }
-        } else {
-            subInterval[0] = subInterval[1];
-            subInterval[1] += ESteps;
-            t_result0, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
-            flagTest := 0;
-            CountIterations++
-            for idx0 := range t_result0 {
-                if (math.Abs(t_result0[idx0]) >= math.Abs(t_result[idx0])* IntRelTol) {
-                    flagTest++;
-                }
-                t_result[idx0] += t_result0[idx0];
-            }
-            if ((flagTest == 0) || (CountIterations > 128)) {
-                if (CountIterations > 128) {
-                    fmt.Println("Iteration count reached maximum!");
-                }
-                break;
-            }
+            t_result[idx0] += t_resultA[idx0];
+        }
+        if ((flagSum == 0) || (CountIterations > 64)) {
+            fmt.Println("Integration range exceeded 128kT!");
+            break;
         }
     }
+
+    t_result[0] *= s.ECurrFactor;
+    t_result[1] *= s.SCurrFactor;
+    t_result[2] *= s.SCurrFactor;
+    t_result[3] *= s.SCurrFactor;
 
     fmt.Printf("Modal I vector = [ %.15g,  %.15g,  %.15g,  %.15g ]\n\n", t_result[0], t_result[1], t_result[2], t_result[3]);
     fmt.Printf("I vector errors = [ %.15g,  %.15g,  %.15g,  %.15g ]\n\n", errbnd[0], errbnd[1], errbnd[2], errbnd[3]);
@@ -346,11 +364,6 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     t[1] = real(MatrixBuffer[1][0] + MatrixBuffer[0][1]);
     t[2] = real(1.0i * MatrixBuffer[0][1] - 1.0i * MatrixBuffer[1][0]);
     t[3] = real(MatrixBuffer[0][0] - MatrixBuffer[1][1]); // z-component of spin current density
-
-    t[0] *= s.ECurrFactor;
-    t[1] *= s.SCurrFactor;
-    t[2] *= s.SCurrFactor;
-    t[3] *= s.SCurrFactor;
 
     // Return result
     return &t;

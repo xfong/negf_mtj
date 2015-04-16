@@ -48,7 +48,7 @@ func main() {
     // Configuration parameters
     th_F, ph_F = utils.Pi/1.0, 0.0;    
     th_H, ph_H = 0.0, 0.0;
-    Vmtj, Temperature = 4.00, 300.0;
+    Vmtj, Temperature = 0.50, 300.0;
 
     fmt.Println("----------------------------------------");
     fmt.Println("Left FM:");
