@@ -11,6 +11,8 @@ import (
 	"github.com/negf_mtj/negf_mtj/utils"
 )
 
+// Data structure for saving information about the NEGF function being
+// integrated. 
 type IntegStruct struct {
     E_mode, V_MTJ, E_Fermi      float64;
     Temperature, deltaL     	float64;
@@ -23,12 +25,14 @@ type IntegStruct struct {
     ECurrFactor, SCurrFactor    float64;
 }
 
+// Package variables for performing the quadrature
 var (
     InitialIntervalCount, MaxIntervalCount      int;
     AbsTol, RelTol                              float64;
     Nodes, Wt15, Wt7, EWts                      [15]float64;
 );
 
+// Set default values for package variables
 func init() {
     InitialIntervalCount = 10;
     MaxIntervalCount = 16384;
@@ -45,7 +49,7 @@ func init() {
     }
 }
 
-// TODO: Since the integration over energies use the same function parameters,
+// Since the integration over energies use the same function parameters,
 // (i.e., for each function call, we only need to change the mode energy and 
 // value of energy at which we are evaluating the function) and we know how to
 // implement quadrature methods for functions taking scalar inputs and returns
@@ -61,10 +65,15 @@ func CreateIntegStruct() *IntegStruct {
     return s;
 }
 
-// Function needed to perform quadrature. The idea is that numerically, we want
-// to perform the integration over the interval [a, inf). However, we map the
-// entire function down to the inteval [0, 1]. In the first step, we map
-// [a, inf) -> [0, inf). Finally, we map [0, inf) -> [0, 1]
+// The two following functions areneeded to perform quadrature. The idea is
+// that numerically, we want to perform the integration over the interval
+// [-1, 1] if the integration limits are finite, or [0, 1] if the
+// integration limits are semi-infinite. So we need to perform the mappings
+// [a, b] -> [-1, 1], or [a, inf) -> [0, 1]. Two steps are used when
+// mapping [a, inf) -> [0, 1]. In the first step, map [a, inf) -> [0, inf).
+// Finally, map [0, inf) -> [0, 1]
+
+// Function for mapping [a, inf) -> [0, 1]
 func IntervalA2InfTransform(A *[]float64, t float64) (x, w float64) {
     tt := t / (1 - t);
     ValA := *A;
@@ -73,9 +82,7 @@ func IntervalA2InfTransform(A *[]float64, t float64) (x, w float64) {
     return;
 }
 
-// Function needed to perform quadrature. The idea is that numerically, we want
-// to perform the integration over the interval [a, b]. However, we map the
-// entire function down to the inteval [-1, 1].
+// Function for mapping [a, b] -> [-1, 1]
 func IntervalA2BTransform(A *[]float64, t float64) (x, w float64) {
     ValA := *A;
     x = 0.25*(ValA[1] - ValA[0]) * t * (3 - t*t) + 0.5*(ValA[0]+ValA[1]);
@@ -83,6 +90,9 @@ func IntervalA2BTransform(A *[]float64, t float64) (x, w float64) {
     return;
 }
 
+// Function for duplicating data structure for quadrature. This helps
+// preserve certain data that needs to be reused between different nodes
+// at which we need to evaluate the function to be integrated.
 func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
     t.E_mode = s.E_mode;
     t.mu1 = s.mu1;
@@ -109,18 +119,26 @@ func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
     return;
 }
 
+// Function to allow external write access to mode energy variable in
+// IntegStruct data structure.
 func (s *IntegStruct) SetMode( ModeEnergy float64 ) {
     s.E_mode = ModeEnergy;
 }
 
+// Function to allow external write access to Hamiltonian variable in
+// IntegStruct data structure.
 func (s *IntegStruct) SetHamiltonian( Hamiltonian *cmplxSparse.SparseMat ) {
     s.Hamiltonian = Hamiltonian;
 }
 
+// Function to allow external read access to Hamiltonian variable in
+// IntegStruct data structure.
 func (s *IntegStruct) ReturnHamiltonianPtr( ) *cmplxSparse.SparseMat {
     return s.Hamiltonian;
 }
 
+// Function to allow external write access to parameter variables in
+// IntegStruct data structure.
 func (s *IntegStruct) SetParams( V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, BT_Mat_L, BT_Mat_R *[2][2]complex128 ) {
     s.V_MTJ, s.E_Fermi, s.Temperature, s.deltaL, s.deltaR = V_MTJ, E_Fermi, Temperature, deltaL, deltaR;
     s.m_fmL, s.m_ox, s.m_fmR = m_fmL, m_ox, m_fmR;
@@ -130,6 +148,8 @@ func (s *IntegStruct) SetParams( V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_
     s.SCurrFactor = ((m_fmL * utils.M0 * utils.Echarge / utils.Hplanck) / utils.Hbar) * utils.SCurrFactor;
 }
 
+// Function to allow external write access to electrochemical potential
+// variables in IntegStruct data structure.
 func (s *IntegStruct) SetMu( ) {
     s.mu1, s.mu2 = s.E_Fermi + 0.5*s.V_MTJ, s.E_Fermi - 0.5*s.V_MTJ;
     s.f1, s.f2 = cmplxSparse.FermiEnergy(s.E_Fermi, s.mu1, s.Temperature), cmplxSparse.FermiEnergy(s.E_Fermi, s.mu2, s.Temperature);
@@ -150,8 +170,8 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     return t;
 }
 
-// TODO: inside this function, we need to integrate over energy. This integration should call the
-// function NEGF_EnergyIntegFunc
+// Function to integrate over energy for a particular mode energy. This
+// function performs quadrature on the function NEGF_EnergyIntegFunc
 func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     // Initialize return value
     //t_result, errbnd := new([4]float64), new([4]float64);
@@ -224,7 +244,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     return &t_result;
 }
 
-// This function is called during integration over energies.
+// This function is called during quadrature integration over energies.
 func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     // Initialize the return value
     t := make([]float64, 4);
