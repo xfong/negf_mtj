@@ -469,7 +469,7 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         // Set up arrays storing the actual nodes at which we are
         // evaluating the results
         NNodes = len(Nodes);
-        xx = make([][]float64, NNodes);
+        xx = make([][]float64, nsubs);
         t, w = make([]float64, NNodes), make([]float64, NNodes);
 
         // Begin going through every subinterval to calculate integral over
@@ -481,16 +481,26 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
                 errsubsk[idx1] = 0.0;
             }
 
+            xx[idx0] = make([]float64, NNodes);
+            qsubsk_full := make([][]float64, NNodes);
+            hh := halfh[idx0];
             // For each subinterval, scan through the nodes to compute values
-            for idx1 := range Nodes {
-                xx[idx1] = make([]float64, nsubs);
-                xx[idx1][idx0] = Nodes[idx1]*halfh[idx0] + midpts[idx0];
-                t[idx1], w[idx1] = TransformFunc(IntegLimits, xx[idx1][idx0]);
+            for idx1, NodeVal := range Nodes {
+                xx[idx0][idx1] = NodeVal*halfh[idx0] + midpts[idx0];
+                t[idx1], w[idx1] = TransformFunc(IntegLimits, xx[idx0][idx1]);
                 fTmp = f(t[idx1]);
                 fxj = *fTmp;
+                qsubsk_full[idx1] = fxj;
+                for idx2 := range fxj {
+                    qsubsk_full[idx1][idx2] *= w[idx1] * hh;
+                }
+            }
+            for idx1 := range Nodes {
+                ww15 := Wt15[idx1];
+                eewt := EWts[idx1];
                 for idx2 := range qsubsk {
-                    qsubsk[idx2] += fxj[idx2] * w[idx1] * Wt15[idx1] * halfh[idx0];
-                    errsubsk[idx2] += fxj[idx2] * w[idx1] * EWts[idx1] * halfh[idx0];
+                    qsubsk[idx2] += qsubsk_full[idx1][idx2] * ww15;
+                    errsubsk[idx2] += qsubsk_full[idx1][idx2] * eewt;
                 }
             }
             // At this point, we have the estimated integral and the error
