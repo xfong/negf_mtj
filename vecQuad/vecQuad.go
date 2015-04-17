@@ -412,9 +412,7 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
     // subs[0][nn] and subs[1][nn] stores the start and end points of the
     // nn-th subinterval, respectively. In the first step, we generate 10
     // subintervals in [0, 1].
-    subs = make([][]float64, 2);
-    subs[0] = make([]float64, nsubs);
-    subs[1] = make([]float64, nsubs);
+    subs = make([][]float64, nsubs);
 
     // Set up arrays for the first subinterval
     SubStart, SubStep, pathlen := float64(-1.0), float64(0.2), float64(2.0);
@@ -424,13 +422,15 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         SubStart, SubStep, pathlen = 0.0, 0.1, 1.0;
         TransformFunc = IntervalA2InfTransform;
     }
+    subs[0] = make([]float64, 2);
     subs[0][0] = SubStart;
-    subs[1][0] = SubStart + SubStep;
+    subs[0][1] = SubStart + SubStep;
 
     // Finish setting up for the rest of the subintervals
     for idx0 := 1; idx0 < nsubs; idx0++ {
-        subs[1][idx0] = subs[1][idx0-1] + SubStep;
-        subs[0][idx0] = subs[1][idx0-1];
+        subs[idx0] = make([]float64, 2);
+        subs[idx0][0] = subs[idx0-1][1];
+        subs[idx0][1] = subs[idx0][0] + SubStep;
     }
 
     // Initialize more buffers
@@ -456,7 +456,7 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         midpts, halfh = make([]float64, nsubs), make([]float64, nsubs);
 
         for idx0 := 0; idx0 < nsubs; idx0++ {
-            midpts[idx0], halfh[idx0] = 0.5*(subs[0][idx0] + subs[1][idx0]), 0.5*(subs[1][idx0] - subs[0][idx0]);
+            midpts[idx0], halfh[idx0] = 0.5*(subs[idx0][0] + subs[idx0][1]), 0.5*(subs[idx0][1] - subs[idx0][0]);
         }
 
         // Set up arrays for storing results over each subinterval
@@ -517,10 +517,6 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         // Scan through the subintervals and reiterate for those
         // subintervals that are insufficiently accurate
         nleft = 0;
-        tmpSub := make([][]float64, 2);
-        tmpMids := make([]float64, 1);
-        tmpSub[0] = make([]float64, 1);
-        tmpSub[1] = make([]float64, 1);
 
         tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), 2.0*AbsTol/pathlen;
         for idx0 := range q {
@@ -542,17 +538,10 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
                     err_ok[idx1] += errsubs[idx0][idx1];
                 }
             } else {
-                if (nleft == 0) {
-                    tmpSub[0][0] = subs[0][idx0];
-                    tmpSub[1][0] = subs[1][idx0];
-                    tmpMids[0] = midpts[idx0];
-                    nleft = 1;
-                } else {
-                    tmpMids = append(tmpMids, midpts[idx0]);
-                    tmpSub[0] = append(tmpSub[0], subs[0][idx0]);
-                    tmpSub[1] = append(tmpSub[1], subs[1][idx0]);
-                    nleft++;
-                }
+                // If the interal over the subinterval is not accurate
+                // enough, move it to the front of the subs array
+                subs[nleft] = subs[idx0];
+                nleft++;
                 for idx1 := range err_not_ok {
                     err_not_ok[idx1] += abserrsubsk[idx1];
                 }
@@ -576,21 +565,23 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
 
         // Dividing subintervals before reiterating
         nsubs = 2 * nleft;
+        subs = subs[0:(nleft-1)]; // Trim the subs array first
         if (nsubs > MaxIntervalCount ) {
             fmt.Println("ERROR: MaxIntervalCount reached!");
             errors.New("ERROR: MaxIntervalCount reached!");
             break;
         }
-        subs_div := make([][]float64, 2);
-        subs_div[0] = make([]float64, nsubs);
-        subs_div[1] = make([]float64, nsubs);
-        for idx0 := 0; idx0 < nleft; idx0++ {
-            targIdxL := idx0*2;
-            targIdxH := targIdxL+1;
-            subs_div[0][targIdxL] = tmpSub[0][idx0];
-            subs_div[1][targIdxL] = tmpMids[idx0];
-            subs_div[0][targIdxH] = tmpMids[idx0];
-            subs_div[1][targIdxH] = tmpSub[1][idx0];
+        subs_div := make([][]float64, nsubs);
+        for idx0 := range subs {
+            targIdxL := 2*idx0;
+            targIdxH := targIdxL + 1;
+            subs_div[targIdxL] = make([]float64, 2);
+            subs_div[targIdxH] = make([]float64, 2);
+            subs_div[targIdxL][0] = subs[idx0][0];
+            subs_div[targIdxH][1] = subs[idx0][1];
+            tmpMid := 0.5*(subs[idx0][0] + subs[idx0][1]);
+            subs_div[targIdxL][1] = tmpMid;
+            subs_div[targIdxH][0] = tmpMid;
         }
         subs = subs_div;
     }
