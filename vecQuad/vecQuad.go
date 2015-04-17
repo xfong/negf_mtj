@@ -517,6 +517,8 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         // Scan through the subintervals and reiterate for those
         // subintervals that are insufficiently accurate
         nleft = 0;
+        tmpMidPtr := new([]float64);
+        tmpMids := *tmpMidPtr;
 
         tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), 2.0*AbsTol/pathlen;
         for idx0 := range q {
@@ -541,6 +543,7 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
                 // If the interal over the subinterval is not accurate
                 // enough, move it to the front of the subs array
                 subs[nleft] = subs[idx0];
+                tmpMids = append(tmpMids, midpts[idx0]);
                 nleft++;
                 for idx1 := range err_not_ok {
                     err_not_ok[idx1] += abserrsubsk[idx1];
@@ -579,9 +582,8 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
             subs_div[targIdxH] = make([]float64, 2);
             subs_div[targIdxL][0] = subs[idx0][0];
             subs_div[targIdxH][1] = subs[idx0][1];
-            tmpMid := 0.5*(subs[idx0][0] + subs[idx0][1]);
-            subs_div[targIdxL][1] = tmpMid;
-            subs_div[targIdxH][0] = tmpMid;
+            subs_div[targIdxL][1] = tmpMids[idx0];
+            subs_div[targIdxH][0] = tmpMids[idx0];
         }
         subs = subs_div;
     }
