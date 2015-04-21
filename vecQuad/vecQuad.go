@@ -239,12 +239,13 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     if (math.Abs(IntervalLength) > 0.1) {
         TotalSubsCount := int(math.Ceil(IntervalLength / 0.1));
         IntervalStep := IntervalLength / math.Ceil(IntervalLength / 0.1);
+        fmt.Printf("Intermediate integration points:");
         for idx0 := 0; idx0 < TotalSubsCount; idx0++ {
             subInterval[1] = subInterval[0] + IntervalStep;
+            fmt.Printf("%d: [%.15g , %.15g ]\n", subInterval[0], subInterval[1]);
             t_resultA, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
             subInterval[0] = subInterval[1];
         }
-        fmt.Printf("Final points = %.15g ?? %.15g\n\n", tempHigh, subInterval[1]);
     } else {
         t_result, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
     }
