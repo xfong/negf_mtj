@@ -167,8 +167,10 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     E_mode := 0.0;
     fmt.Println("Checking internal structure: Nodes[", len(Nodes), "], Wt15[", len(Wt15), "], Wt7[", len(Wt7), "]");
     // TODO: Need to integrate over modes
+    ProbDup := CreateIntegStruct();
+    ProbDup.CopyIntegStruct(s);
     t := ProbDup.NEGF_ModeIntegFunc(E_mode);
-//    t := s.NEGF_TestEnergyFunc(E_mode);
+//    t := ProbDup.NEGF_TestEnergyFunc(E_mode);
     return t;
 }
 
