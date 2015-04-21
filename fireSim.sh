@@ -10,5 +10,5 @@ then
 fi
 
 echo `date`
-go run main.go > /export/min.ecn.purdue.edu/n01/negf_mtj_test_out.txt
+go run main.go
 echo `date`
