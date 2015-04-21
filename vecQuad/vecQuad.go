@@ -215,19 +215,19 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
 
     // Begin integration over energy space
-    ESteps, IntRelTol, IntAbsTol := float64(utils.K_q * s.Temperature), float64(1e-6), float64(1e-12);
+    ESteps, IntRelTol, IntAbsTol := float64(utils.K_q * ProbDup.Temperature), float64(1e-6), float64(1e-12);
     CountIterations := 0;
-    
-    // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
+
+    // The integration over energy should occur from the highest minimum conduction band to infinity
     // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
 
-    // Start by working from mu1 to mu2
+    // Start by working on the interval [min(mu1, mu2), max(mu1, mu2)]
     subInterval := make([]float64, 2);
-    subInterval[0] = s.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ) - 10.0*utils.K_q*ProbDup.Temperature;
-    subInterval[1] = s.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ) + 10.0*utils.K_q*ProbDup.Temperature;
+    subInterval[0] = s.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ);
+    subInterval[1] = s.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ);
     tempLow, tempHigh := subInterval[0], subInterval[1];
     fmt.Printf("Subinterval = [%.15g, %.15g]\n",subInterval[0], subInterval[1]);
-/*    IntervalLength := subInterval[1] - subInterval[0];
+    IntervalLength := subInterval[1] - subInterval[0];
 
     // t_result stores what we will return. t_resultA and t_resultB are
     // used when we are determining the currents for energies outside the
@@ -245,6 +245,9 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
             fmt.Printf("%d: [%.15g , %.15g ]\n", idx0+1, subInterval[0], subInterval[1]);
             t_resultA, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
             subInterval[0] = subInterval[1];
+            for idx1 := range t_resultA {
+                t_result[idx1] += t_resultA[idx1];
+            }
         }
     } else {
         t_result, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
@@ -277,8 +280,8 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
             break;
         }
     }
-*/
-    t_result, errbnd := IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+
+//    t_result, errbnd := IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
     fmt.Println("Integration went to +/-", CountIterations,"k_{B}T");
     t_result[0] *= s.ECurrFactor;
     t_result[1] *= s.SCurrFactor;
