@@ -59,17 +59,17 @@ func main() {
     fmt.Printf("th = %.15g, ph = %.15g\n", th_H, ph_H);
     fmt.Println("----------------------------------------");
 
-/*
+//
     aSpace := float64(1.0e-11);
     d_ox := float64(1.15e-9);
     d_fm_L := float64(2.0e-11);
     d_fm_R := float64(2.0e-11);
-*/
+/*
     aSpace := float64(0.25e-9);
     d_ox := float64(1.0e-9);
     d_fm_L := float64(0.5e-9);
     d_fm_R := float64(0.5e-9);
-
+*/
     N_fm_L := int(d_fm_L/aSpace);
     N_fm_R := int(d_fm_R/aSpace);
     N_ox := int(d_ox/aSpace) - 1;
@@ -130,7 +130,7 @@ func main() {
     ProblemSet.SetHamiltonian(cmplxSparse.AddVoltagePotential(ProblemSet.N_fmL, ProblemSet.N_ox, ProblemSet.V_MTJ, ProblemSet.Hamiltonian))
     ProblemSet.SetMu();
 
-    cmplxSparse.PrintSparseMatrix(ProblemSet.ReturnHamiltonianPtr());
+//    cmplxSparse.PrintSparseMatrix(ProblemSet.ReturnHamiltonianPtr());
 
     // TODO: integrate over mode energies
     // i.e. We should integrate over the region E_mode = [0, +inf)
