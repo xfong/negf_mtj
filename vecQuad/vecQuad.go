@@ -215,7 +215,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
 
     EnergyVal := s.E_Fermi + E_mode -0.5*s.V_MTJ - 10*utils.K_q*s.Temperature;
-    fmt.Println("Test0: EnergyVal",EnergyVal);
+
     // TODO: Begin integration over energy space
 
     ESteps, IntRelTol := float64(utils.K_q * s.Temperature), float64(1e-5);
@@ -293,7 +293,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
 func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     // Initialize the return value
     t := make([]float64, 4);
-    fmt.Printf("Inside EnergyIntegFunc: Energy = %.15g\n",EnergyValue);
+
     // Get t0 on left and right of Hamiltonian matrix
     MatrixSize := len(s.Hamiltonian.Data);
     MaxDiagIdx := len(s.Hamiltonian.Data[0]);
