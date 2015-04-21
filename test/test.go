@@ -46,6 +46,7 @@ func main() {
 
 	testRangeScale(complex(4.5,0.0), 17, 17, 2, 10 );
 
+	testAddModeProfile(3.0, 2, 1.0, 2, 2.0, 2, 3.0);
 }
 
 func testIdentity() {
@@ -278,4 +279,21 @@ func testRangeScale(A complex128, startIdx, endIdx, diagIdx, n int ) {
                 fmt.Printf("\n");
         }
 	fmt.Println("\n");
+}
+
+func testAddModeProfile(E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64) {
+        fmt.Println("Initializing Sparse matrix structure\n");
+        tmp := cmplxSparse.New();
+
+        matrixSize := int(2*(N_fmL+N_ox+N_fmR+2));
+        fmt.Println("Making sparse ",matrixSize,"x",matrixSize," Hamiltonian tridiagonal matrix for mode energy test\n");
+        cmplxSparse.MakeHamTriDiag(matrixSize/2, tmp);
+
+        fmt.Println("Printing sparse ",matrixSize,"x",matrixSize," Hamiltonian tridiagonal matrix before action\n");
+	cmplxSparse.PrintSparseMatrix(tmp);
+
+	cmplxSparse.AddModeEnergy(E_mode, N_fmL, m_fmL, N_ox, m_ox, N_fmR, m_fmR, tmp);
+
+        fmt.Println("Printing sparse ",matrixSize,"x",matrixSize," Hamiltonian tridiagonal matrix after action\n");
+	cmplxSparse.PrintSparseMatrix(tmp);
 }

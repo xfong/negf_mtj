@@ -302,9 +302,10 @@ func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox flo
     s.Data[2*(N_fmL+N_ox)+2][mainDiagIdx] += complex(0.5*(E_modeFm+E_modeOx), 0.0);
     s.Data[2*(N_fmL+N_ox)+3][mainDiagIdx] += complex(0.5*(E_modeFm+E_modeOx), 0.0);
 
-    for idx0 := N_fmL+N_ox+1; idx0 < totalPts; idx0++ {
-        s.Data[2*idx0][mainDiagIdx] += complex(E_modeFm, 0.0);
-        s.Data[2*idx0+1][mainDiagIdx] += complex(E_modeFm, 0.0);
+    // Adjustment for sites corresponding to right FM
+    for idx0 := 0; idx0 < N_fmR; idx0++ {
+        s.Data[tmpLength-2-idx0*2][mainDiagIdx] += complex(E_modeFm, 0.0);
+        s.Data[tmpLength-1-idx0*2][mainDiagIdx] += complex(E_modeFm, 0.0);
     }
 
 }
