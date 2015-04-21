@@ -14,7 +14,7 @@ var (
     Echarge	    = float64(1.60217657e-19);
     Mu0		    = Pi*4.0e-7;
     MuB		    = float64(9.27400968e-24);
-    Zplus	    = 1e-15;
+    Zplus	    = 1e-12;
     M0		    = float64(9.10938291e-31);
     K_q		    = K_B / Echarge;
     ECurrFactor = Echarge * Echarge / Hplanck;

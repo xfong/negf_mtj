@@ -234,15 +234,15 @@ func AddVoltagePotential( N_fm, N_ox int, voltage float64, s *SparseMat ) *Spars
 	tmpLength := len(s.Data);
 	totalPts := tmpLength/2;
 	voltageProfile := make([]float64,totalPts)
-	voltageDelta := voltage/float64(N_ox+1);
+	voltageDelta := -1.0*voltage/float64(N_ox+1);
     t := SparseCopy(s);
 	for idx0 := 0; idx0 < totalPts; idx0++ {
 		if (idx0 <= N_fm) {
-			voltageProfile[idx0] = 0.5*voltage;
+			voltageProfile[idx0] = -0.5*voltage;
 		} else if (idx0 < N_fm+1+N_ox) {
 			voltageProfile[idx0] = voltageProfile[idx0-1]-voltageDelta;
 		} else {
-			voltageProfile[idx0] = -0.5*voltage;
+			voltageProfile[idx0] = 0.5*voltage;
 		}
 		t.Data[2*idx0][2] += complex(voltageProfile[idx0], 0.0);
 		t.Data[2*idx0+1][2] += complex(voltageProfile[idx0], 0.0);
@@ -269,11 +269,10 @@ func AddBarrierProfile( N_fm, N_ox int, Eb float64, s *SparseMat ) {
 	}
 }
 
-// Function for adding mode energy profile to Hamiltonian
-func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, t *SparseMat ) *SparseMat {
-	tmpLength := len(t.Data);
+// Function for adding mode energy profile to Hamiltonian (in place)
+func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox float64, N_fmR int, m_fmR float64, s *SparseMat ) {
+	tmpLength := len(s.Data);
 	totalPts := tmpLength/2;
-    s := SparseCopy(t);
 	if ((N_fmL >= totalPts) || (N_ox >= totalPts) || (N_fmR >= totalPts)) {
 		errors.New("ERROR: Indices are out of range!");
 	} else if ((N_fmL < 0) || (N_ox < 0) || (N_fmR < 0)) {
@@ -308,7 +307,6 @@ func AddModeEnergy( E_mode float64, N_fmL int, m_fmL float64, N_ox int, m_ox flo
         s.Data[2*idx0+1][mainDiagIdx] += complex(E_modeFm, 0.0);
     }
 
-    return s;
 }
 
 // Function for adding band splitting for up-spin and down-spin conduction bands on left contact
@@ -577,7 +575,7 @@ func SparseDiagLinearSolver(A *SparseMat, b []complex128) []complex128 {
 			}
         }
 
-		x[targIdx] /= A.Data[targIdx][mainDiagIdx];
+        x[targIdx] /= A.Data[targIdx][mainDiagIdx];
 	}
 
 	return x;
@@ -633,15 +631,14 @@ func SparseDiagDagger(s *SparseMat) *SparseMat {
 	return t;
 }
 
-func CalcGreensFunc(EnergyValue float64, Hamiltonian *SparseMat) [][]complex128 {
+func CalcGreensFunc(Hamiltonian *SparseMat) [][]complex128 {
 
     // At this point, Hamiltonian should consist of applied potential profile, self-energies
     // of the left and right contacts, as well as the barrier height. To obtain G, we start
     // with the LU factorization of the combined Hamiltonian and energy matrices.
 
     MatrixSize := len(Hamiltonian.Data);
-    MainDiagIdx := (len(Hamiltonian.Data[0]) - 1) / 2;
-    InvGMatrix := SparseCopy(Hamiltonian);
+    InvGMatrix := Hamiltonian;
 
     // Initialize buffer memory to save calculated column of Green's Function Matrix.
     // We are exploiting the fact that we do not need to save the entire matrix so as
@@ -664,10 +661,6 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *SparseMat) [][]complex128 
             GMatrix[idx0] = make([]complex128, 4);
         }
 
-        // Since we are already looping over the matrix index, we might as well add the energy
-        // to the diagonal element of the matrix inverse of the Green's matrix.
-        InvGMatrix.Data[idx0][MainDiagIdx] += complex(EnergyValue, utils.Zplus);
-
         // Zero the entries of the buffer
         SolveVector[idx0] = 0.0 + 0.0i;
     }
@@ -678,7 +671,7 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *SparseMat) [][]complex128 
     // We can save on some operations post-LU factorization by adjusting the b vector in
     // A*x = b as we solve for x using the SparseDiagLinearSolver function. We may then
     // store the solution directly to GMatrix.
-    for idx0 := 0; idx0 < MatrixSize; idx0++ {
+    for idx0 := range SolveVector {
         if (idx0 > 0) {
             SolveVector[idx0-1] = 0.0 + 0.0i;
         }
@@ -690,7 +683,7 @@ func CalcGreensFunc(EnergyValue float64, Hamiltonian *SparseMat) [][]complex128 
             GMatrix[idx0][2] = SolveBuffer[MatrixSize-2];
             GMatrix[idx0][3] = SolveBuffer[MatrixSize-1];
         } else {
-            for idx1 := 0; idx1 < MatrixSize; idx1 ++ {
+            for idx1 := range SolveBuffer {
                 GMatrix[idx0][idx1] = SolveBuffer[idx1];
             }
         }
@@ -707,24 +700,31 @@ func FermiEnergy( E_F, mu_pot, Temperature float64 ) float64 {
 
 // Function for calculating the self-energy matrices
 func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64, t0 complex128, BT_Mat *[2][2]complex128) *[2][2]complex128 {
-    s := new([2][2]complex128);
+    s, chk := new([2][2]complex128), new([2][2]complex128);
 
     SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, utils.Zplus);
     SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
-    sig_uu := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
+    sig_uu := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, 1.0) * cmplx.Acos(SumEnergy));
 
     SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, utils.Zplus);
     SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
-    sig_dd := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, -1.0) * cmplx.Acos(SumEnergy));
+    sig_dd := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, 1.0) * cmplx.Acos(SumEnergy));
 
     s[0][0] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][0];
     s[0][1] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][1];
     s[1][0] = cmplx.Conj(BT_Mat[0][1])*sig_uu*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][1])*sig_dd*BT_Mat[1][0];
     s[1][1] = cmplx.Conj(BT_Mat[0][1])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][1])*sig_dd*BT_Mat[1][1];
+
+    chk[0][0] = cmplx.Conj(BT_Mat[0][0])*(1.0+0.0i)*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][0])*(1.0+0.0i)*BT_Mat[1][0];
+    chk[0][1] = cmplx.Conj(BT_Mat[0][0])*(1.0+0.0i)*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][0])*(1.0+0.0i)*BT_Mat[1][1];
+    chk[1][0] = cmplx.Conj(BT_Mat[0][1])*(1.0+0.0i)*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][1])*(1.0+0.0i)*BT_Mat[1][0];
+    chk[1][1] = cmplx.Conj(BT_Mat[0][1])*(1.0+0.0i)*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][1])*(1.0+0.0i)*BT_Mat[1][1];
+
+    fmt.Printf("chk matrix in SelfEnergyEntries:\n %.15g  %.15g\n %.15g  %.15g\n<-------------------->\n", chk[0][0], chk[0][1], chk[1][0], chk[1][1]);
 
     return s;
 }

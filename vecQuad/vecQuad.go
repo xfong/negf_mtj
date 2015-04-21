@@ -19,6 +19,7 @@ type IntegStruct struct {
     deltaR, m_fmL, m_ox     	float64;
     m_fmR, mu1, mu2, f1, f2 	float64;
     f1_prime, f2_prime      	float64;
+    t_fmL, t_fmR                complex128;
     N_fmL, N_ox, N_fmR      	int;
     BT_Mat_L, BT_Mat_R      	*[2][2]complex128;
     Hamiltonian             	*cmplxSparse.SparseMat
@@ -95,6 +96,7 @@ func IntervalA2BTransform(A *[]float64, t float64) (x, w float64) {
 // at which we need to evaluate the function to be integrated.
 func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
     t.E_mode = s.E_mode;
+    t.E_Fermi = s.E_Fermi;
     t.mu1 = s.mu1;
     t.mu2 = s.mu2;
     t.f1 = s.f1;
@@ -108,12 +110,14 @@ func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
     t.m_fmL = s.m_fmL;
     t.m_ox = s.m_ox;
     t.m_fmR = s.m_fmR;
+    t.t_fmL = s.t_fmL;
+    t.t_fmR = s.t_fmR;
     t.N_fmL = s.N_fmL;
     t.N_ox = s.N_ox;
     t.N_fmR = s.N_fmR;
     t.BT_Mat_L = s.BT_Mat_L;
     t.BT_Mat_R = s.BT_Mat_R;
-    t.Hamiltonian = s.Hamiltonian;
+    t.Hamiltonian = cmplxSparse.SparseCopy(s.Hamiltonian);
     t.ECurrFactor = s.ECurrFactor;
     t.SCurrFactor = s.SCurrFactor;
     return;
@@ -139,11 +143,12 @@ func (s *IntegStruct) ReturnHamiltonianPtr( ) *cmplxSparse.SparseMat {
 
 // Function to allow external write access to parameter variables in
 // IntegStruct data structure.
-func (s *IntegStruct) SetParams( V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_fmL, m_ox, m_fmR float64, N_fmL, N_ox, N_fmR int, BT_Mat_L, BT_Mat_R *[2][2]complex128 ) {
+func (s *IntegStruct) SetParams( V_MTJ, E_Fermi, Temperature, deltaL, deltaR, m_fmL, m_ox, m_fmR float64, t_fmL, t_fmR complex128, N_fmL, N_ox, N_fmR int, BT_Mat_L, BT_Mat_R *[2][2]complex128 ) {
     s.V_MTJ, s.E_Fermi, s.Temperature, s.deltaL, s.deltaR = V_MTJ, E_Fermi, Temperature, deltaL, deltaR;
     s.m_fmL, s.m_ox, s.m_fmR = m_fmL, m_ox, m_fmR;
     s.N_fmL, s.N_ox, s.N_fmR = N_fmL, N_ox, N_fmR;
     s.BT_Mat_L, s.BT_Mat_R = BT_Mat_L, BT_Mat_R;
+    s.t_fmL, s.t_fmR = t_fmL, t_fmR;
     s.ECurrFactor = ((m_fmL * utils.M0 * utils.Echarge / utils.Hplanck) / utils.Hbar) * utils.ECurrFactor;
     s.SCurrFactor = ((m_fmL * utils.M0 * utils.Echarge / utils.Hplanck) / utils.Hbar) * utils.SCurrFactor;
 }
@@ -158,56 +163,94 @@ func (s *IntegStruct) SetMu( ) {
 
 // This function is called to perform integration over mode energies.
 func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
-    ProbDup := CreateIntegStruct();
-    ProbDup.CopyIntegStruct(s);
-    ProbDup.SetHamiltonian(cmplxSparse.AddVoltagePotential(ProbDup.N_fmL, ProbDup.N_ox, ProbDup.V_MTJ, ProbDup.Hamiltonian))
-
     fmt.Println("ECurrFactor, SCurrFactor = ", s.ECurrFactor, s.SCurrFactor);
     E_mode := 0.0;
     fmt.Println("Checking internal structure: Nodes[", len(Nodes), "], Wt15[", len(Wt15), "], Wt7[", len(Wt7), "]");
     // TODO: Need to integrate over modes
     t := ProbDup.NEGF_ModeIntegFunc(E_mode);
+//    t := s.NEGF_TestEnergyFunc(E_mode);
     return t;
 }
 
 // Function to integrate over energy for a particular mode energy. This
 // function performs quadrature on the function NEGF_EnergyIntegFunc
-func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
-    // Initialize return value
-    //t_result, errbnd := new([4]float64), new([4]float64);
-    s.SetMode(E_mode);
+func (s *IntegStruct) NEGF_TestEnergyFunc( E_mode float64 ) *[]float64 {
+    // To allow reuse by every mode energy value, we make a copy first.
+    ProbDup := CreateIntegStruct();
+    ProbDup.CopyIntegStruct(s);
 
+    ProbDup.SetMode(E_mode);
+    cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
+
+    EnergyVal := s.E_Fermi + E_mode -0.5*s.V_MTJ - 10*utils.K_q*s.Temperature;
+    fmt.Println("Test0: EnergyVal",EnergyVal);
     // TODO: Begin integration over energy space
 
-    fmt.Println("Inside NEGF_ModeIntegFunc. Calling NEGF_EnergyIntegFunc...")
+    fmt.Println("Inside NEGF_TestIntegFunc. Calling NEGF_EnergyIntegFunc...")
+
+/*    fmt.Println("<------------------------------>");
+    fmt.Println("Hamiltonian in entering energy integral");
+    cmplxSparse.PrintSparseMatrix(ProbDup.ReturnHamiltonianPtr());
+    fmt.Println("<------------------------------>");
+*/
+    t_resultPtr := ProbDup.NEGF_EnergyIntegFunc(EnergyVal);
+    t_result := *t_resultPtr;
+
+    fmt.Printf("Modal I vector = [ %.15g,  %.15g,  %.15g,  %.15g ]\n\n", t_result[0], t_result[1], t_result[2], t_result[3]);
+
+    // Return result
+    return &t_result;
+}
+
+// Function to integrate over energy for a particular mode energy. This
+// function performs quadrature on the function NEGF_EnergyIntegFunc
+func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
+    // To allow reuse by every mode energy value, we make a copy first.
+    ProbDup := CreateIntegStruct();
+    ProbDup.CopyIntegStruct(s);
+
+    ProbDup.SetMode(E_mode);
+    cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
+
+    EnergyVal := s.E_Fermi + E_mode -0.5*s.V_MTJ - 10*utils.K_q*s.Temperature;
+    fmt.Println("Test0: EnergyVal",EnergyVal);
+    // TODO: Begin integration over energy space
+
     ESteps, IntRelTol := float64(utils.K_q * s.Temperature), float64(1e-5);
     CountIterations := 0;
     
     // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
     // i.e. the integral should be over the region Eval in [max(mu1 - E_Fermi, mu2 - E_Fermi), +inf)
+
+    // Start by working from mu1 to mu2
     subInterval := make([]float64, 2);
-    subInterval[0] = s.E_Fermi - math.Abs(0.5*s.V_MTJ);
-    subInterval[1] = s.E_Fermi + math.Abs(0.5*s.V_MTJ);
+    subInterval[0] = s.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ);
+    subInterval[1] = s.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ);
     tempLow, tempHigh := subInterval[0], subInterval[1];
     fmt.Printf("Subinterval = [%.15g, %.15g]\n",subInterval[0], subInterval[1]);
     IntervalLength := subInterval[1] - subInterval[0];
 
+    // t_result stores what we will return. t_resultA and t_resultB are
+    // used when we are determining the currents for energies outside the
+    // interval [min(mu1, mu2), max(mu1, mu2)].
     t_result, t_resultA, t_resultB, errbnd := make([]float64, 4), make([]float64, 4), make([]float64, 4), make([]float64, 4);
     t_result[0], t_result[1], t_result[2], t_result[3] = 0.0, 0.0, 0.0, 0.0;
 
+    // If initial interval is too large, we will trim and perform integration
     if (math.Abs(IntervalLength) > 0.1) {
         TotalSubsCount := int(math.Ceil(IntervalLength / 0.1));
         IntervalStep := IntervalLength / math.Ceil(IntervalLength / 0.1);
         for idx0 := 0; idx0 < TotalSubsCount; idx0++ {
             subInterval[1] = subInterval[0] + IntervalStep;
-            t_resultA, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+            t_resultA, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
             subInterval[0] = subInterval[1];
         }
         fmt.Printf("Final points = %.15g ?? %.15g\n\n", tempHigh, subInterval[1]);
     } else {
-        t_result, errbnd = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        t_result, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
     }
 
+    // To reduce computation, we work in pairs around E_Fermi instead.
     for {
         CountIterations++;
         subInterval[1] = tempLow;
@@ -248,46 +291,54 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
 func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     // Initialize the return value
     t := make([]float64, 4);
-
+    fmt.Printf("Inside EnergyIntegFunc: Energy = %.15g\n",EnergyValue);
     // Get t0 on left and right of Hamiltonian matrix
     MatrixSize := len(s.Hamiltonian.Data);
     MaxDiagIdx := len(s.Hamiltonian.Data[0]);
     MainDiagIdx := (MaxDiagIdx - 1)/2;
 
-    // Store f1*gam1 and f2*gam2. Note that these matrices are non-zero at the top
+    // Adjust Hamiltonian with sigma1 to obtain the inverse of Green's function matrix
+    InvGMatrix := cmplxSparse.SparseCopy(s.Hamiltonian);
+
+    // Adjust main diagonal with the energy value of interest
+    for idx0 := 0; idx0 < MatrixSize; idx0++ {
+        InvGMatrix.Data[idx0][MainDiagIdx] += complex(EnergyValue, utils.Zplus);
+    }
+
+	// Store f1*gam1 and f2*gam2. Note that these matrices are non-zero at the top
     // left and bottom right, respectively. Hence, it is sufficient to store them
     // as just 2 x 2 matrices.
     f1gam1, f2gam2 := new([2][2]complex128), new([2][2]complex128);
 
-    // Calculate f1*gam1 first and store in a buffer
-    SelfEnergyBuffer := cmplxSparse.SelfEnergyEntries(EnergyValue, s.E_mode, 0.0, s.deltaL, -0.5*s.V_MTJ, s.Hamiltonian.Data[0][MaxDiagIdx-1], s.BT_Mat_L);
-    f1gam1[0][0] = complex(0.0, s.f1) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
-    f1gam1[0][1] = complex(0.0, s.f1) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
-    f1gam1[1][0] = complex(0.0, s.f1) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
-    f1gam1[1][1] = complex(0.0, s.f1) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
+    f1, f2 := cmplxSparse.FermiEnergy(EnergyValue, s.mu1, s.Temperature), cmplxSparse.FermiEnergy(EnergyValue, s.mu2, s.Temperature);
 
-    // Adjust Hamiltonian with f1gam1 to obtain the inverse of Green's function matrix
-    InvGMatrix := cmplxSparse.SparseCopy(s.Hamiltonian);
+    // Calculate f1*gam1 first and store in a buffer
+    SelfEnergyBuffer := cmplxSparse.SelfEnergyEntries(EnergyValue, s.E_mode, 0.0, s.deltaL, s.V_MTJ, s.t_fmL, s.BT_Mat_L);
+    f1gam1[0][0] = complex(0.0, f1) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
+    f1gam1[0][1] = complex(0.0, f1) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
+    f1gam1[1][0] = complex(0.0, f1) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
+    f1gam1[1][1] = complex(0.0, f1) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
+
     InvGMatrix.Data[0][MainDiagIdx] -= SelfEnergyBuffer[0][0]
     InvGMatrix.Data[0][MainDiagIdx+1] -= SelfEnergyBuffer[0][1]
     InvGMatrix.Data[1][MainDiagIdx-1] -= SelfEnergyBuffer[1][0]
     InvGMatrix.Data[1][MainDiagIdx] -= SelfEnergyBuffer[1][1]
 
     // Calculate f2*gam2 next and store in a buffer
-    SelfEnergyBuffer = cmplxSparse.SelfEnergyEntries(EnergyValue, s.E_mode, 0.0, s.deltaR, 0.5*s.V_MTJ, s.Hamiltonian.Data[MatrixSize-MaxDiagIdx+MainDiagIdx][MaxDiagIdx-1], s.BT_Mat_R);
-    f2gam2[0][0] = complex(0.0, s.f2) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
-    f2gam2[0][1] = complex(0.0, s.f2) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
-    f2gam2[1][0] = complex(0.0, s.f2) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
-    f2gam2[1][1] = complex(0.0, s.f2) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
+    SelfEnergyBuffer = cmplxSparse.SelfEnergyEntries(EnergyValue, s.E_mode, 0.0, s.deltaR, -1.0*s.V_MTJ, s.t_fmR, s.BT_Mat_R);
+    f2gam2[0][0] = complex(0.0, f2) * (SelfEnergyBuffer[0][0] - cmplx.Conj(SelfEnergyBuffer[0][0]));
+    f2gam2[0][1] = complex(0.0, f2) * (SelfEnergyBuffer[0][1] - cmplx.Conj(SelfEnergyBuffer[1][0]));
+    f2gam2[1][0] = complex(0.0, f2) * (SelfEnergyBuffer[1][0] - cmplx.Conj(SelfEnergyBuffer[0][1]));
+    f2gam2[1][1] = complex(0.0, f2) * (SelfEnergyBuffer[1][1] - cmplx.Conj(SelfEnergyBuffer[1][1]));
 
-    // Final adjustment of Hamiltonian with f2gam2 to obtain the inverse of Green's function matrix
+    // Adjust Hamiltonian with sigma2 to obtain the inverse of Green's function matrix
     InvGMatrix.Data[MatrixSize-2][MainDiagIdx] -= SelfEnergyBuffer[0][0]
     InvGMatrix.Data[MatrixSize-2][MainDiagIdx+1] -= SelfEnergyBuffer[0][1]
     InvGMatrix.Data[MatrixSize-1][MainDiagIdx-1] -= SelfEnergyBuffer[1][0]
     InvGMatrix.Data[MatrixSize-1][MainDiagIdx] -= SelfEnergyBuffer[1][1]
 
     // Calculate Green's Function matrix
-    GMatrix := cmplxSparse.CalcGreensFunc(EnergyValue, InvGMatrix);
+    GMatrix := cmplxSparse.CalcGreensFunc(InvGMatrix);
 
     // Calculate Gn = G * (f1*gam1 + f2*gam2) * (G^+)...
     // Since f1*gam1 and f2*gam2 are sparse matrices, we do not need to do a full matrix multiplication
@@ -303,14 +354,14 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     }
     // Calculate each row of RearMultBuffer
     for idx0 := 0; idx0 < MatrixSize; idx0++ {
-        RearMultBuffer[0][idx0] = f1gam1[0][0] * GMatrix[idx0][0] + f1gam1[0][1] * GMatrix[idx0][1];
-        RearMultBuffer[1][idx0] = f1gam1[1][0] * GMatrix[idx0][0] + f1gam1[1][1] * GMatrix[idx0][1];
+        RearMultBuffer[0][idx0] = f1gam1[0][0] * cmplx.Conj(GMatrix[idx0][0]) + f1gam1[0][1] * cmplx.Conj(GMatrix[idx0][1]);
+        RearMultBuffer[1][idx0] = f1gam1[1][0] * cmplx.Conj(GMatrix[idx0][0]) + f1gam1[1][1] * cmplx.Conj(GMatrix[idx0][1]);
         if ((idx0 > 1) && (idx0 < RearIdx0)) {
-            RearMultBuffer[2][idx0] = f2gam2[0][0] * GMatrix[idx0][2] + f2gam2[0][1] * GMatrix[idx0][3];
-            RearMultBuffer[3][idx0] = f2gam2[1][0] * GMatrix[idx0][2] + f2gam2[1][1] * GMatrix[idx0][3];
+            RearMultBuffer[2][idx0] = f2gam2[0][0] * cmplx.Conj(GMatrix[idx0][2]) + f2gam2[0][1] * cmplx.Conj(GMatrix[idx0][3]);
+            RearMultBuffer[3][idx0] = f2gam2[1][0] * cmplx.Conj(GMatrix[idx0][2]) + f2gam2[1][1] * cmplx.Conj(GMatrix[idx0][3]);
         } else {
-            RearMultBuffer[2][idx0] = f2gam2[0][0] * GMatrix[idx0][RearIdx0] + f2gam2[0][1] * GMatrix[idx0][RearIdx1];
-            RearMultBuffer[3][idx0] = f2gam2[1][0] * GMatrix[idx0][RearIdx0] + f2gam2[1][1] * GMatrix[idx0][RearIdx1];
+            RearMultBuffer[2][idx0] = f2gam2[0][0] * cmplx.Conj(GMatrix[idx0][RearIdx0]) + f2gam2[0][1] * cmplx.Conj(GMatrix[idx0][RearIdx1]);
+            RearMultBuffer[3][idx0] = f2gam2[1][0] * cmplx.Conj(GMatrix[idx0][RearIdx0]) + f2gam2[1][1] * cmplx.Conj(GMatrix[idx0][RearIdx1]);
         }
     }
 
@@ -318,7 +369,7 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     GnF, GnR := new([2][2]complex128), new([2][2]complex128);
     GnF[0][0], GnF[0][1], GnF[1][0], GnF[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
     GnR[0][0], GnR[0][1], GnR[1][0], GnR[1][1] = 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i, 0.0 + 0.0i;
-    PtIdx0 := 2*s.N_fmL;
+    PtIdx0 := 2*s.N_fmL + 1;
     PtIdx1, PtIdx2, PtIdx3 := PtIdx0 - 1, PtIdx0 + 1, PtIdx0 + 2;
 
     // GMatrix is actually the transpose of G. Due to the nature of (f1*gam1 + f2*gam2)
@@ -359,25 +410,25 @@ func (s *IntegStruct) NEGF_EnergyIntegFunc( EnergyValue float64 ) *[]float64 {
     // We know the Hamiltonian is stored in diagonal format. Extract the wanted values of Hamiltonian
     // and multiply accordingly to GnF and GnR.
     HamF, HamR, MatrixBuffer := new([2][2]complex128), new([2][2]complex128), new([2][2]complex128);
-    HamR[0][1] = s.Hamiltonian.Data[PtIdx2][MainDiagIdx-1];
-    HamR[0][0] = s.Hamiltonian.Data[PtIdx2][MainDiagIdx-2];
-    HamR[1][1] = s.Hamiltonian.Data[PtIdx3][MainDiagIdx-2];
-    HamF[1][0] = s.Hamiltonian.Data[PtIdx0][MainDiagIdx+1];
-    HamF[0][0] = s.Hamiltonian.Data[PtIdx1][MainDiagIdx+2];
-    HamF[1][1] = s.Hamiltonian.Data[PtIdx0][MainDiagIdx+2];
+    HamR[0][1] = -1.0*s.Hamiltonian.Data[PtIdx2][MainDiagIdx-1];
+    HamR[0][0] = -1.0*s.Hamiltonian.Data[PtIdx2][MainDiagIdx-2];
+    HamR[1][1] = -1.0*s.Hamiltonian.Data[PtIdx3][MainDiagIdx-2];
+    HamF[1][0] = -1.0*s.Hamiltonian.Data[PtIdx0][MainDiagIdx+1];
+    HamF[0][0] = -1.0*s.Hamiltonian.Data[PtIdx1][MainDiagIdx+2];
+    HamF[1][1] = -1.0*s.Hamiltonian.Data[PtIdx0][MainDiagIdx+2];
     if (MaxDiagIdx > 6) {
-        HamR[1][0] = s.Hamiltonian.Data[PtIdx3][MainDiagIdx-3];
-        HamF[0][1] = s.Hamiltonian.Data[PtIdx1][MainDiagIdx+3];
+        HamR[1][0] = -1.0*s.Hamiltonian.Data[PtIdx3][MainDiagIdx-3];
+        HamF[0][1] = -1.0*s.Hamiltonian.Data[PtIdx1][MainDiagIdx+3];
     } else {
         HamR[1][0] = 0.0 + 0.0i;
         HamF[0][1] = 0.0 + 0.0i;
     }
 
     // Calculate term from H*Gn - Gn*H;
-    MatrixBuffer[0][0] = HamR[0][0] * GnF[0][0] + HamR[0][1] * GnF[1][0] - GnR[0][0] * HamF[0][0] - GnR[0][1] * HamF[1][0];
-    MatrixBuffer[0][1] = HamR[0][0] * GnF[0][1] + HamR[0][1] * GnF[1][1] - GnR[0][0] * HamF[0][1] - GnR[0][1] * HamF[1][1];
-    MatrixBuffer[1][0] = HamR[1][0] * GnF[0][0] + HamR[1][1] * GnF[1][0] - GnR[1][0] * HamF[0][0] - GnR[1][1] * HamF[1][0];
-    MatrixBuffer[1][1] = HamR[1][0] * GnF[0][1] + HamR[1][1] * GnF[1][1] - GnR[1][0] * HamF[0][1] - GnR[1][1] * HamF[1][1];
+    MatrixBuffer[0][0] = 1.0i*(HamR[0][0] * GnF[0][0] + HamR[0][1] * GnF[1][0] - GnR[0][0] * HamF[0][0] - GnR[0][1] * HamF[1][0]);
+    MatrixBuffer[0][1] = 1.0i*(HamR[0][0] * GnF[0][1] + HamR[0][1] * GnF[1][1] - GnR[0][0] * HamF[0][1] - GnR[0][1] * HamF[1][1]);
+    MatrixBuffer[1][0] = 1.0i*(HamR[1][0] * GnF[0][0] + HamR[1][1] * GnF[1][0] - GnR[1][0] * HamF[0][0] - GnR[1][1] * HamF[1][0]);
+    MatrixBuffer[1][1] = 1.0i*(HamR[1][0] * GnF[0][1] + HamR[1][1] * GnF[1][1] - GnR[1][0] * HamF[0][1] - GnR[1][1] * HamF[1][1]);
 
     // Calculate current density, and components of spin current
     t[0] = real(MatrixBuffer[0][0] + MatrixBuffer[1][1]); // Charge current density

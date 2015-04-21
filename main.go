@@ -48,7 +48,7 @@ func main() {
     // Configuration parameters
     th_F, ph_F = utils.Pi/1.0, 0.0;    
     th_H, ph_H = 0.0, 0.0;
-    Vmtj, Temperature = 0.50, 300.0;
+    Vmtj, Temperature = 0.20, 300.0;
 
     fmt.Println("----------------------------------------");
     fmt.Println("Left FM:");
@@ -124,7 +124,10 @@ func main() {
 
     // Calculate matrices for basis transformation. Done here since it is only needed once.
     ProblemSet.SetHamiltonian(HamBuffer);
-    ProblemSet.SetParams(Vmtj, E_Fermi, Temperature, E_split_L, E_split_R, m_fm_L, m_ox, m_fm_R, N_fm_L, N_ox, N_fm_R, cmplxSparse.BasisTransform(th_F, ph_F), cmplxSparse.BasisTransform(th_H, ph_H));
+    ProblemSet.SetParams(Vmtj, E_Fermi, Temperature, E_split_L, E_split_R, m_fm_L, m_ox, m_fm_R, complex(t_fm_L, 0.0), complex(t_fm_R, 0.0), N_fm_L, N_ox, N_fm_R, cmplxSparse.BasisTransform(th_F, ph_F), cmplxSparse.BasisTransform(th_H, ph_H));
+
+    // Add applied voltage profile
+    ProblemSet.SetHamiltonian(cmplxSparse.AddVoltagePotential(ProblemSet.N_fmL, ProblemSet.N_ox, ProblemSet.V_MTJ, ProblemSet.Hamiltonian))
     ProblemSet.SetMu();
 
     cmplxSparse.PrintSparseMatrix(ProblemSet.ReturnHamiltonianPtr());

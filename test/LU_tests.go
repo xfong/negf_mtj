@@ -13,7 +13,7 @@ func main() {
 	testLU(6);
 
 	// Test diagonal matrix inversion...
-	testDiagInversion(3);
+	testDiagSolver(3);
 
 }
 
@@ -43,7 +43,7 @@ func testLU( n int ) {
 	fmt.Println("\n");
 }
 
-func testDiagInversion( n int ) {
+func testDiagSolver( n int ) {
     fmt.Println("Initializing Sparse matrix structure\n");
     tmp := cmplxSparse.New();
 
@@ -77,29 +77,25 @@ func testDiagInversion( n int ) {
     fmt.Printf("\n");
 
     InvBuffer := make([][]complex128, matrixSize);
-    for idx0 := 0; idx0 < matrixSize; idx0++ {
-        InvBuffer[idx0] = make([]complex128, matrixSize);
-        for idx1 := 0; idx1 < matrixSize; idx1++ {
+    for idx0 := range InvBuffer {
+        InvBuffer[idx0]=make([]complex128, matrixSize);
+        for idx1 := range InvBuffer[idx0] {
             InvBuffer[idx0][idx1] = 0.0 + 0.0i;
         }
     }
 
-    for idx0 := 0; idx0 < matrixSize; idx0++ {
+    for idx0 := range InvBuffer {
         InvBuffer[idx0][idx0] = 1.0 + 0.0i;
         BufferMatrix := cmplxSparse.SparseDiagLinearSolver(tmp0, InvBuffer[idx0]);
-        for idx1 := 0; idx1 < matrixSize; idx1++ {
-            InvBuffer[idx0][idx1] = BufferMatrix[idx1];
+        InvBuffer[idx0] = BufferMatrix;
+    }
+
+    fmt.Println("Accessing matrix elements of inverse (m,n):");
+
+    for idx0 := range InvBuffer {
+        for idx1 := range InvBuffer[idx0] {
+            fmt.Printf("%.15g  ", InvBuffer[idx0][idx1]);
         }
         fmt.Printf("\n");
     }
-
-    fmt.Println("Accessing matrix elements if inverse (m,n):");
-
-    for idx0 := 0; idx0 < matrixSize; idx0++ {
-        for idx1 := 0; idx1 < matrixSize; idx1++ {
-            fmt.Printf("%f  ", InvBuffer[idx1][idx0]);
-        }
-        fmt.Printf("\n");
-    }
-	fmt.Println("\n");
 }
