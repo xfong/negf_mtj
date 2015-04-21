@@ -215,7 +215,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
 
     // Begin integration over energy space
-    ESteps, IntRelTol := float64(utils.K_q * s.Temperature), float64(1e-5);
+    ESteps, IntRelTol, IntAbsTol := float64(utils.K_q * s.Temperature), float64(1e-6), float64(1e-12);
     CountIterations := 0;
     
     // TODO: the integration over energy should occur from the highest minimum conduction band to infinity
@@ -264,7 +264,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         flagSum := 0;
         for idx0 := range t_resultA {
             t_resultA[idx0] += t_resultB[idx0];
-            if (math.Abs(t_resultA[idx0]) >= math.Abs(t_result[idx0]) * IntRelTol) {
+            if ((math.Abs(t_resultA[idx0]) > IntAbsTol) && (math.Abs(t_resultA[idx0]) > math.Abs(t_result[idx0]) * IntRelTol)) {
                 flagSum++;
             }
             t_result[idx0] += t_resultA[idx0];
@@ -274,7 +274,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
             break;
         }
     }
-
+    fmt.Println("Integration went to +/-", CountIterations,"k_{B}T");
     t_result[0] *= s.ECurrFactor;
     t_result[1] *= s.SCurrFactor;
     t_result[2] *= s.SCurrFactor;
