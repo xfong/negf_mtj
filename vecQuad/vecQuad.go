@@ -242,7 +242,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         fmt.Printf("Intermediate integration points:");
         for idx0 := 0; idx0 < TotalSubsCount; idx0++ {
             subInterval[1] = subInterval[0] + IntervalStep;
-            fmt.Printf("%d: [%.15g , %.15g ]\n", subInterval[0], subInterval[1]);
+            fmt.Printf("%d: [%.15g , %.15g ]\n", idx0+1, subInterval[0], subInterval[1]);
             t_resultA, errbnd = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
             subInterval[0] = subInterval[1];
         }
