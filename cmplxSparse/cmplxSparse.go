@@ -701,7 +701,7 @@ func FermiEnergy( E_F, mu_pot, Temperature float64 ) float64 {
 
 // Function for calculating the self-energy matrices
 func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64, t0 complex128, BT_Mat *[2][2]complex128) *[2][2]complex128 {
-    s, chk := new([2][2]complex128), new([2][2]complex128);
+    s := new([2][2]complex128);
 
     SumEnergy := complex(currEnergy - modeEnergy + 0.5*potential - delta0, utils.Zplus);
     SumEnergy /= complex(-2.0, 0.0) * t0;
@@ -719,13 +719,6 @@ func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64
     s[0][1] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][1];
     s[1][0] = cmplx.Conj(BT_Mat[0][1])*sig_uu*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][1])*sig_dd*BT_Mat[1][0];
     s[1][1] = cmplx.Conj(BT_Mat[0][1])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][1])*sig_dd*BT_Mat[1][1];
-
-    chk[0][0] = cmplx.Conj(BT_Mat[0][0])*(1.0+0.0i)*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][0])*(1.0+0.0i)*BT_Mat[1][0];
-    chk[0][1] = cmplx.Conj(BT_Mat[0][0])*(1.0+0.0i)*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][0])*(1.0+0.0i)*BT_Mat[1][1];
-    chk[1][0] = cmplx.Conj(BT_Mat[0][1])*(1.0+0.0i)*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][1])*(1.0+0.0i)*BT_Mat[1][0];
-    chk[1][1] = cmplx.Conj(BT_Mat[0][1])*(1.0+0.0i)*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][1])*(1.0+0.0i)*BT_Mat[1][1];
-
-    fmt.Printf("chk matrix in SelfEnergyEntries:\n %.15g  %.15g\n %.15g  %.15g\n<-------------------->\n", chk[0][0], chk[0][1], chk[1][0], chk[1][1]);
 
     return s;
 }
