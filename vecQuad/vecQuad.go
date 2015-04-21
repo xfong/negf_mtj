@@ -278,7 +278,7 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         }
     }
 */
-    t_result, errbnd := s.NEGF_EnergyIntegFunc, &subInterval, 4);
+    t_result, errbnd := IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
     fmt.Println("Integration went to +/-", CountIterations,"k_{B}T");
     t_result[0] *= s.ECurrFactor;
     t_result[1] *= s.SCurrFactor;
