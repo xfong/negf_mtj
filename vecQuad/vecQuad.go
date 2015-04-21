@@ -270,7 +270,9 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
             t_result[idx0] += t_resultA[idx0];
         }
         if ((flagSum == 0) || (CountIterations > 64)) {
-            fmt.Println("Integration range exceeded 128kT!");
+            if (CountIterations > 64) {
+                fmt.Println("Integration range exceeded 128kT!");
+            }
             break;
         }
     }
