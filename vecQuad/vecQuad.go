@@ -223,8 +223,8 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
 
     // Start by working from mu1 to mu2
     subInterval := make([]float64, 2);
-    subInterval[0] = s.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ) - 10.0*utils.K_q*Temperature;
-    subInterval[1] = s.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ) + 10.0*utils.K_q*Temperature;
+    subInterval[0] = s.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ) - 10.0*utils.K_q*ProbDup.Temperature;
+    subInterval[1] = s.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ) + 10.0*utils.K_q*ProbDup.Temperature;
     tempLow, tempHigh := subInterval[0], subInterval[1];
     fmt.Printf("Subinterval = [%.15g, %.15g]\n",subInterval[0], subInterval[1]);
 /*    IntervalLength := subInterval[1] - subInterval[0];
