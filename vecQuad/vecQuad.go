@@ -191,12 +191,11 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     // achieved.
     for {
         CountIntervals++
-        fmt.Println("Mark 0: Iteration ", CountIntervals);
         subInterval[0] = subInterval[1];
         subInterval[1] += ESteps;
-        fmt.Println("Mark 1: Iteration ", CountIntervals);
         ti, errbndi := IntegralCalc(ProbDup.NEGF_ModeIntegFunc, &subInterval, 4);
-        fmt.Printf("Error bound for mode energy integration interval %d:\n current[0] = %.15g\n current[1] = %.15g\n current[2] = %.15g\n current[3] = %.15g\n", CountIntervals, errbndi[0], errbndi[1], errbndi[2], errbndi[3]);
+        fmt.Printf("Calculated currents for mode energy integration interval %d:\n current[0] = %.15g\n current[1] = %.15g\n current[2] = %.15g\n current[3] = %.15g\n", CountIntervals, ti[0], ti[1], ti[2], ti[3]);
+        fmt.Printf("Error bound for mode energy integration interval %d:\n errbnd[0] = %.15g\n errbnd[1] = %.15g\n errbnd[2] = %.15g\n errbnd[3] = %.15g\n", CountIntervals, errbndi[0], errbndi[1], errbndi[2], errbndi[3]);
         flagSum := 0;
         for idx0 := range ti {
             if ((math.Abs(ti[idx0]) > IntAbsTol) && (math.Abs(ti[idx0]) > math.Abs(t[idx0]) * IntRelTol)) {
@@ -204,7 +203,7 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
             }
             t[idx0] += ti[idx0];
         }
-        if ((flagSum == 0) || (CountIntervals > 10)) {
+        if ((flagSum == 0) || (CountIntervals > 3)) {
             if (CountIntervals > 10) {
                 fmt.Println("Integration of mode energies exceeded 10 intervals!");
             }
