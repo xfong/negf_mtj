@@ -281,14 +281,14 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         IntervalStep := IntervalLength / math.Ceil(IntervalLength / 0.1);
         for idx0 := 0; idx0 < TotalSubsCount; idx0++ {
             subInterval[1] = subInterval[0] + IntervalStep;
-            t_resultA, _ = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
+            t_resultA, _ = IntegralCalcConcurrent(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
             subInterval[0] = subInterval[1];
             for idx1 := range t_resultA {
                 t_result[idx1] += t_resultA[idx1];
             }
         }
     } else {
-        t_result, _ = IntegralCalc(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
+        t_result, _ = IntegralCalcConcurrent(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
     }
 
     // To reduce computation, we work in pairs around E_Fermi instead.
@@ -296,11 +296,11 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         CountIterations++;
         subInterval[1] = tempLow;
         subInterval[0] = subInterval[1]-ESteps;
-        t_resultA, _ = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        t_resultA, _ = IntegralCalcConcurrent(s.NEGF_EnergyIntegFunc, &subInterval, 4);
         tempLow = subInterval[0];
         subInterval[0] = tempHigh;
         subInterval[1] = subInterval[0]+ESteps;
-        t_resultB, _ = IntegralCalc(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        t_resultB, _ = IntegralCalcConcurrent(s.NEGF_EnergyIntegFunc, &subInterval, 4);
         tempHigh = subInterval[1];
 
         flagSum := 0;
