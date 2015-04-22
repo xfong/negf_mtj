@@ -26,6 +26,11 @@ type IntegStruct struct {
     ECurrFactor, SCurrFactor    float64;
 }
 
+type Sem00ReturnStruct struct {
+    fTmp        *[]float64
+    xx, t, w    float64
+}
+
 // Package variables for performing the quadrature
 var (
     InitialIntervalCount, MaxIntervalCount      int;
@@ -685,6 +690,257 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         subs = subs_div;
     }
     return;
+}
+
+// Function for performing integration over the interval [a, b] using
+// Gauss-Kronrod quadrature (7-point estimator, 15 point corrector). This
+// is used in MATLAB as well. If the array IntegLimits contains only one
+// element, then the integration is over the interval [a, inf). When
+// integrating to infinity, the interval is first mapped to [0, inf), and
+// then to [0, 1] i.e, [a, inf) -> [0, inf) -> [0, 1].
+func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, expectSize int) (q, errbnd []float64) {
+    // Generate 10 subintervals first
+    nsubs := 10;
+    var (
+        subs, qsubs, errsubs, xx                                            [][]float64;
+        qsubsk, errsubsk, t, w, q_ok, err_ok, err_not_ok, midpts, halfh     []float64;
+        NNodes, nleft                                                       int;
+        too_close                                                           bool;
+    );
+
+    // Set up buffer for accumulating results over one subinterval
+    qsubsk, errsubsk = make([]float64, expectSize), make([]float64, expectSize);
+
+    // subs[0][nn] and subs[1][nn] stores the start and end points of the
+    // nn-th subinterval, respectively. In the first step, we generate 10
+    // subintervals in [0, 1].
+    subs = make([][]float64, nsubs);
+
+    // Set up arrays for the first subinterval
+    SubStart, SubStep, pathlen := float64(-1.0), float64(0.2), float64(2.0);
+    TransformFunc := IntervalA2BTransform;
+    IntegLimitsArr := *IntegLimits;
+    if (len(IntegLimitsArr) < 2) {
+        SubStart, SubStep, pathlen = 0.0, 0.1, 1.0;
+        TransformFunc = IntervalA2InfTransform;
+    }
+    subs[0] = make([]float64, 2);
+    subs[0][0] = SubStart;
+    subs[0][1] = SubStart + SubStep;
+
+    // Finish setting up for the rest of the subintervals
+    for idx0 := 1; idx0 < nsubs; idx0++ {
+        subs[idx0] = make([]float64, 2);
+        subs[idx0][0] = subs[idx0-1][1];
+        subs[idx0][1] = subs[idx0][0] + SubStep;
+    }
+
+    // Initialize more buffers
+    q, q_ok, err_ok, err_not_ok, errbnd = make([]float64, expectSize), make([]float64, expectSize), make([]float64, expectSize), make([]float64, expectSize), make([]float64, expectSize);
+    for idx0 := range q {
+        q[idx0], q_ok[idx0], err_ok[idx0], err_not_ok[idx0], errbnd[idx0] = 0.0, 0.0, 0.0, 0.0, 0.0;
+    }
+
+    // Begin "infinite" loop. Loop breaks out when error tolerances are met
+    // or when the interation process meets/fails certain conditions.
+    for {
+
+        // Update q with the previous OK value before going through loop
+        for idx0 := range q_ok {
+            q[idx0] = q_ok[idx0];
+        }
+        // Set up arrays defining midpoints and half path lengths of every
+        // subinterval. subs and nsubs are updated at the end of every
+        // iteration. Hence, we need to compute the midpoints and lengths
+        // of every subinterval at the beginning of the iteration.
+        // midpts[nn] and halfh[nn] stores the midpts and length of the nn-th
+        // subinterval, respectively.
+        midpts, halfh = make([]float64, nsubs), make([]float64, nsubs);
+
+        for idx0 := 0; idx0 < nsubs; idx0++ {
+            midpts[idx0], halfh[idx0] = 0.5*(subs[idx0][0] + subs[idx0][1]), 0.5*(subs[idx0][1] - subs[idx0][0]);
+        }
+
+        // Set up arrays for storing results over each subinterval
+        qsubs, errsubs = make([][]float64, nsubs), make([][]float64, nsubs);
+
+        for idx0 := 0; idx0 < nsubs; idx0++ {
+            qsubs[idx0], errsubs[idx0] = make([]float64, expectSize), make([]float64, expectSize);
+        }
+
+        // Set up arrays storing the actual nodes at which we are
+        // evaluating the results
+        NNodes = len(Nodes);
+        xx = make([][]float64, nsubs);
+        t, w = make([]float64, NNodes), make([]float64, NNodes);
+
+        // Begin going through every subinterval to calculate integral over
+        // each of them
+        for idx0 := 0; idx0 < nsubs; idx0++ {
+            // Zero the buffer prior to scanning through the nodes
+            for idx1 := range qsubsk {
+                qsubsk[idx1] = 0.0;
+                errsubsk[idx1] = 0.0;
+            }
+
+            xx[idx0] = make([]float64, NNodes);
+            qsubsk_full := make([][]float64, NNodes);
+            hh, mmpts := halfh[idx0], midpts[idx0];
+            // For each subinterval, scan through the nodes to compute values
+            // Using Go routines to perform parallel computations at each node.
+            // The channel is used as the intermediate buffer for results of
+            // each computation performed in parallel.
+            sem00 := make(chan Sem00ReturnStruct, NNodes);
+            for _, NodeVal := range Nodes {
+                go GaussKronradNodeComputeFunc(hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, sem00);
+            }
+            // Drain the channel at the end to extract the results.
+            for idx1 := 0; idx1 < NNodes; idx1++ {
+                ssRet := <-sem00;
+                xx[idx0][idx1] = ssRet.xx;
+                t[idx1], w[idx1] = ssRet.t, ssRet.w;
+                fTmp := ssRet.fTmp;
+                qsubsk_full[idx1] = *fTmp;
+            }
+/*
+            for idx1 := range Nodes {
+                ww15 := Wt15[idx1];
+                eewt := EWts[idx1];
+                for idx2 := range qsubsk {
+                    qsubsk[idx2] += qsubsk_full[idx1][idx2] * ww15;
+                    errsubsk[idx2] += qsubsk_full[idx1][idx2] * eewt;
+                }
+            }
+*/
+            // Create a new channel for accumulating return values of all nodes
+            sem01 := make(chan [2]float64, NNodes);
+            // We go through each output of the function
+            for idx1 := range qsubsk {
+                // Fill channel with results
+                for idx2 := range Nodes {
+                    go GaussKronrodOutNodeValues(Wt15[idx2], EWts[idx2], qsubsk_full[idx2][idx1], sem01);
+                }
+                // Drain the channel to obtain results of computations
+                for idx2 := 0; idx2 < NNodes; idx2++ {
+                    tmpOut := <-sem01;
+                    qsubsk[idx1] += tmpOut[0];
+                    errsubsk[idx1] += tmpOut[1];
+                }
+            }
+
+            // At this point, we have the estimated integral and the error
+            // for the subnterval. So store into the bigger buffer
+            for idx1 := range qsubsk {
+                qsubs[idx0][idx1] = qsubsk[idx1];
+                errsubs[idx0][idx1] = errsubsk[idx1];
+                q[idx1] += qsubsk[idx1];
+            }
+
+            // Terminate and exit if the spacing is too close
+            too_close = checkSpacing(&t);
+            if too_close {
+                break;
+            }
+        }
+        // Terminate and exit if the spacing is too close. The previous
+        // too_close check breaks out of the scan through subintervals.
+        // This check here breaks out of the entire "infinite" for loop
+        if too_close {
+            break;
+        }
+
+        // Scan through the subintervals and reiterate for those
+        // subintervals that are insufficiently accurate
+        nleft = 0;
+        tmpMidPtr := new([]float64);
+        tmpMids := *tmpMidPtr;
+
+        tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), 2.0*AbsTol/pathlen;
+        for idx0 := range q {
+            tol[idx0] = RelTol * math.Abs(q[idx0]);
+            tolr[idx0] = 2.0*tol[idx0]/pathlen;
+        }
+        for idx0 := 0; idx0 < nsubs; idx0++ {
+            abserrsubsk := make([]float64, expectSize);
+            flagSum0 := int(0);
+            for idx1 := range q {
+                abserrsubsk[idx1] = math.Abs(errsubs[idx0][idx1]);
+                if ((abserrsubsk[idx1] > tolr[idx1] * halfh[idx0]) && (abserrsubsk[idx1] > tola * halfh[idx0])) {
+                    flagSum0++;
+                }
+            }
+            if (flagSum0 == 0) {
+                for idx1 := 0; idx1 < expectSize; idx1++ {
+                    q_ok[idx1] += qsubs[idx0][idx1];
+                    err_ok[idx1] += errsubs[idx0][idx1];
+                }
+            } else {
+                // If the interal over the subinterval is not accurate
+                // enough, move it to the front of the subs array
+                subs[nleft] = subs[idx0];
+                tmpMids = append(tmpMids, midpts[idx0]);
+                nleft++;
+                for idx1 := range err_not_ok {
+                    err_not_ok[idx1] += abserrsubsk[idx1];
+                }
+            }
+        }
+        // By this point, we have figured out the subintervals that failed
+        // tolerance checks. We will divide the subintervals into two and
+        // reiterate the "infinite" for loop.
+        flagSum1 := int(0);
+        for idx0 := range errbnd {
+            errbnd[idx0] = math.Abs(err_ok[idx0]) + err_not_ok[idx0];
+            if ((errbnd[idx0] > tol[idx0]) && (errbnd[idx0] > AbsTol)) {
+                flagSum1++;
+            }
+        }
+
+        // Break out of infinite loop if we are within error bounds.
+        if ((nleft < 1) || (flagSum1 == 0)) {
+            break;
+        }
+
+        // Dividing subintervals before reiterating
+        nsubs = 2 * nleft;
+        subs = subs[0:(nleft-1)]; // Trim the subs array first
+        if (nsubs > MaxIntervalCount ) {
+            fmt.Println("ERROR: MaxIntervalCount reached!");
+            errors.New("ERROR: MaxIntervalCount reached!");
+            break;
+        }
+        subs_div := make([][]float64, nsubs);
+        for idx0 := range subs {
+            targIdxL := 2*idx0;
+            targIdxH := targIdxL + 1;
+            subs_div[targIdxL] = make([]float64, 2);
+            subs_div[targIdxH] = make([]float64, 2);
+            subs_div[targIdxL][0] = subs[idx0][0];
+            subs_div[targIdxH][1] = subs[idx0][1];
+            subs_div[targIdxL][1] = tmpMids[idx0];
+            subs_div[targIdxH][0] = tmpMids[idx0];
+        }
+        subs = subs_div;
+    }
+    return;
+}
+
+func GaussKronradNodeComputeFunc(hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan Sem00ReturnStruct) {
+	var ssRet Sem00ReturnStruct;
+	ssRet.xx = NodeVal*hh + mmpts;
+    ssRet.t, ssRet.w = TransformFunc(IntegLimits, ssRet.xx);
+    ssRet.fTmp = f(ssRet.t);
+    fxj := *ssRet.fTmp;
+    for idx2 := range fxj {
+        fxj[idx2] *= ssRet.w * hh;
+    }
+    queue <- ssRet;
+}
+
+func GaussKronrodOutNodeValues(ww15, eewt, qsubsk_val float64, sem01 chan [2]float64) {
+	var tmpOut [2]float64;
+	tmpOut[0], tmpOut[1] = qsubsk_val * ww15, qsubsk_val * eewt;
+	sem01 <- tmpOut;
 }
 
 // Check to ensure spacing between integration nodes is sufficiently large

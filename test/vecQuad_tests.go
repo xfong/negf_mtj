@@ -100,7 +100,7 @@ func VectorizedFunc3( n float64 ) *[]float64 {
 func testExp0(n float64) {
 	nn := make([]float64, 1);
 	nn[0] = n;
-	answer, errbnd := vecQuad.IntegralCalc(SimpleExp, &nn, 1);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(SimpleExp, &nn, 1);
 	fmt.Println("Integral of 1/Exp(x) from 0 to inf =", answer);
 	fmt.Println("Actual result should be =", math.Exp(-n));
 	fmt.Println("Error of integral =", errbnd);
@@ -109,7 +109,7 @@ func testExp0(n float64) {
 func testExp1(n float64) {
 	nn := make([]float64, 1);
 	nn[0] = n;
-	answer, errbnd := vecQuad.IntegralCalc(VectorizedFunc0, &nn, 2);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(VectorizedFunc0, &nn, 2);
 	fmt.Println("Integral of 1/Exp(x) from 0 to inf =", answer[0]);
 	fmt.Println("Actual result should be =", math.Exp(-n));
 	fmt.Println("Error of first integral =", errbnd[0]);
@@ -121,7 +121,7 @@ func testExp1(n float64) {
 func testExp2(n float64) {
 	nn := make([]float64, 1);
 	nn[0] = n;
-	answer, errbnd := vecQuad.IntegralCalc(VectorizedFunc1, &nn, 4);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(VectorizedFunc1, &nn, 4);
 	fmt.Println("Integral of 1/Exp(x) from 0 to inf =", answer[0]);
 	fmt.Println("Actual result should be =", math.Exp(-1.0*n));
 	fmt.Println("Error of first integral =", errbnd[0]);
@@ -139,7 +139,7 @@ func testExp2(n float64) {
 func testExp3(n, m float64) {
 	LimitsList := make([]float64, 2);
 	LimitsList[0], LimitsList[1] = n, m;
-	answer, errbnd := vecQuad.IntegralCalc(SimpleLinear, &LimitsList, 1);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(SimpleLinear, &LimitsList, 1);
 	fmt.Println("Integral of x from ", n, " to ", m, " =", answer[0]);
 	fmt.Println("Actual result should be =", (m*m - n*n));
 	fmt.Println("Error of integral =", errbnd);
@@ -148,7 +148,7 @@ func testExp3(n, m float64) {
 func testExp4(n, m float64) {
 	LimitsList := make([]float64, 2);
 	LimitsList[0], LimitsList[1] = n, m;
-	answer, errbnd := vecQuad.IntegralCalc(SimpleQuadr, &LimitsList, 1);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(SimpleQuadr, &LimitsList, 1);
 	fmt.Println("Integral of x^2 from ", n, " to ", m, " =", answer[0]);
 	fmt.Println("Actual result should be =", float64(1.0/3.0) * (m*m*m - n*n*n));
 	fmt.Println("Error of integral =", errbnd);
@@ -157,7 +157,7 @@ func testExp4(n, m float64) {
 func testExp5(n, m float64) {
 	LimitsList := make([]float64, 2);
 	LimitsList[0], LimitsList[1] = n, m;
-	answer, errbnd := vecQuad.IntegralCalc(VectorizedFunc2, &LimitsList, 2);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(VectorizedFunc2, &LimitsList, 2);
 	fmt.Println("Integral of x^2 from ", n, " to ", m, " =", answer[0]);
 	fmt.Println("Actual result should be =", float64(1.0/3.0)*(m*m*m - n*n*n));
 	fmt.Println("Error of first integral =", errbnd[0]);
@@ -169,7 +169,7 @@ func testExp5(n, m float64) {
 func testExp6(n, m float64) {
 	LimitsList := make([]float64, 2);
 	LimitsList[0], LimitsList[1] = n, m;
-	answer, errbnd := vecQuad.IntegralCalc(VectorizedFunc3, &LimitsList, 4);
+	answer, errbnd := vecQuad.IntegralCalcConcurrent(VectorizedFunc3, &LimitsList, 4);
 	fmt.Println("Integral of 1/Exp(x) from ", n, " to ", m, " =", answer[0]);
 	fmt.Println("Actual result should be =", math.Exp(-1.0*n) - math.Exp(-1.0*m));
 	fmt.Println("Error of first integral =", errbnd[0]);
