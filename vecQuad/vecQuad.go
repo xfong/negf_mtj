@@ -775,7 +775,8 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
         t, w = make([]float64, NNodes), make([]float64, NNodes);
 
         // Begin going through every subinterval to calculate integral over
-        // each of them
+        // each of them. TODO: convert the inside of the following into Go
+        // routine so as to enable parallel execution.
         for idx0 := 0; idx0 < nsubs; idx0++ {
             // Zero the buffer prior to scanning through the nodes
             for idx1 := range qsubsk {
@@ -786,43 +787,35 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
             xx[idx0] = make([]float64, NNodes);
             qsubsk_full := make([][]float64, NNodes);
             hh, mmpts := halfh[idx0], midpts[idx0];
+
             // For each subinterval, scan through the nodes to compute values
             // Using Go routines to perform parallel computations at each node.
             // The channel is used as the intermediate buffer for results of
             // each computation performed in parallel.
-            sem00 := make(chan Sem00ReturnStruct, NNodes);
+            sem10 := make(chan Sem00ReturnStruct, NNodes);
             for _, NodeVal := range Nodes {
-                go GaussKronradNodeComputeFunc(hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, sem00);
+                go GaussKronrodNodeComputeFunc(hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, sem10);
             }
             // Drain the channel at the end to extract the results.
             for idx1 := 0; idx1 < NNodes; idx1++ {
-                ssRet := <-sem00;
+                ssRet := <-sem10;
                 xx[idx0][idx1] = ssRet.xx;
                 t[idx1], w[idx1] = ssRet.t, ssRet.w;
                 fTmp := ssRet.fTmp;
                 qsubsk_full[idx1] = *fTmp;
             }
-/*
-            for idx1 := range Nodes {
-                ww15 := Wt15[idx1];
-                eewt := EWts[idx1];
-                for idx2 := range qsubsk {
-                    qsubsk[idx2] += qsubsk_full[idx1][idx2] * ww15;
-                    errsubsk[idx2] += qsubsk_full[idx1][idx2] * eewt;
-                }
-            }
-*/
+
             // Create a new channel for accumulating return values of all nodes
-            sem01 := make(chan [2]float64, NNodes);
+            sem11 := make(chan [2]float64, NNodes);
             // We go through each output of the function
             for idx1 := range qsubsk {
                 // Fill channel with results
                 for idx2 := range Nodes {
-                    go GaussKronrodOutNodeValues(Wt15[idx2], EWts[idx2], qsubsk_full[idx2][idx1], sem01);
+                    go GaussKronrodOutNodeValues(Wt15[idx2], EWts[idx2], qsubsk_full[idx2][idx1], sem11);
                 }
                 // Drain the channel to obtain results of computations
                 for idx2 := 0; idx2 < NNodes; idx2++ {
-                    tmpOut := <-sem01;
+                    tmpOut := <-sem11;
                     qsubsk[idx1] += tmpOut[0];
                     errsubsk[idx1] += tmpOut[1];
                 }
@@ -925,7 +918,9 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
     return;
 }
 
-func GaussKronradNodeComputeFunc(hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan Sem00ReturnStruct) {
+// Function used as Go routine to parallelize GaussKronrod call to integral
+// function so as to speed up overall computation time.
+func GaussKronrodNodeComputeFunc(hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan Sem00ReturnStruct) {
 	var ssRet Sem00ReturnStruct;
 	ssRet.xx = NodeVal*hh + mmpts;
     ssRet.t, ssRet.w = TransformFunc(IntegLimits, ssRet.xx);
@@ -937,6 +932,8 @@ func GaussKronradNodeComputeFunc(hh, mmpts, NodeVal float64, IntegLimits *[]floa
     queue <- ssRet;
 }
 
+// Function used as Go routine in GaussKronrod quadrature for computing q
+// and err in a particular subinterval.
 func GaussKronrodOutNodeValues(ww15, eewt, qsubsk_val float64, sem01 chan [2]float64) {
 	var tmpOut [2]float64;
 	tmpOut[0], tmpOut[1] = qsubsk_val * ww15, qsubsk_val * eewt;
