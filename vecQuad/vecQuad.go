@@ -26,9 +26,11 @@ type IntegStruct struct {
     ECurrFactor, SCurrFactor    float64;
 }
 
-type Sem00ReturnStruct struct {
-    fTmp        *[]float64
-    xx, t, w    float64
+type QSubskReturnStruct struct {
+    fTmp            *[]float64
+    xx, t, w        float64
+    eewt, wwt15     float64
+    subIdx, NIdx    int
 }
 
 // Package variables for performing the quadrature
@@ -701,15 +703,13 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
     // Generate 10 subintervals first
     nsubs := 10;
     var (
-        subs, qsubs, errsubs, xx                                            [][]float64;
-        qsubsk, errsubsk, t, w, q_ok, err_ok, err_not_ok, midpts, halfh     []float64;
-        NNodes, nleft                                                       int;
-        too_close                                                           bool;
+        subs, qsubs, errsubs                        [][]float64;
+        q_ok, err_ok, err_not_ok, midpts, halfh     []float64;
+        NNodes, nleft                               int;
+        too_close                                   bool;
     );
 
-    // Set up buffer for accumulating results over one subinterval
-    qsubsk, errsubsk = make([]float64, expectSize), make([]float64, expectSize);
-
+    NNodes = len(Nodes);
     // subs[0][nn] and subs[1][nn] stores the start and end points of the
     // nn-th subinterval, respectively. In the first step, we generate 10
     // subintervals in [0, 1].
@@ -765,72 +765,62 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
 
         for idx0 := 0; idx0 < nsubs; idx0++ {
             qsubs[idx0], errsubs[idx0] = make([]float64, expectSize), make([]float64, expectSize);
+            for idx1 := 0; idx1 < expectSize; idx1++ {
+                qsubs[idx0][idx1], errsubs[idx0][idx1] = 0.0, 0.0;
+            }
         }
 
-        // Set up arrays storing the actual nodes at which we are
-        // evaluating the results
-        NNodes = len(Nodes);
-        xx = make([][]float64, nsubs);
-        t, w = make([]float64, NNodes), make([]float64, NNodes);
-
+        // Create channel for individual pieces to return results
+        TotalPieces := nsubs * NNodes;
+        qsubsk_full := make(chan QSubskReturnStruct, TotalPieces);
         // Begin going through every subinterval to calculate integral over
         // each of them. TODO: convert the inside of the following into Go
         // routine so as to enable parallel execution.
         for idx0 := 0; idx0 < nsubs; idx0++ {
-            // Zero the buffer prior to scanning through the nodes
-            for idx1 := range qsubsk {
-                qsubsk[idx1] = 0.0;
-                errsubsk[idx1] = 0.0;
-            }
 
-            xx[idx0] = make([]float64, NNodes);
-            qsubsk_full := make([][]float64, NNodes);
             hh, mmpts := halfh[idx0], midpts[idx0];
 
             // For each subinterval, scan through the nodes to compute values
             // Using Go routines to perform parallel computations at each node.
             // The channel is used as the intermediate buffer for results of
             // each computation performed in parallel.
-            sem10 := make(chan Sem00ReturnStruct, NNodes);
-            for _, NodeVal := range Nodes {
-                go GaussKronrodNodeComputeFunc(hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, sem10);
+            for idx1, NodeVal := range Nodes {
+                go GaussKronrodNodeComputeFunc(idx0, idx1, Wt15[idx1], EWts[idx1], hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, qsubsk_full);
             }
-            // Drain the channel at the end to extract the results.
-            for idx1 := 0; idx1 < NNodes; idx1++ {
-                ssRet := <-sem10;
-                xx[idx0][idx1] = ssRet.xx;
-                t[idx1], w[idx1] = ssRet.t, ssRet.w;
-                fTmp := ssRet.fTmp;
-                qsubsk_full[idx1] = *fTmp;
-            }
+        }
 
-            // Create a new channel for accumulating return values of all nodes
-            sem11 := make(chan [2]float64, NNodes);
-            // We go through each output of the function
-            for idx1 := range qsubsk {
-                // Fill channel with results
-                for idx2 := range Nodes {
-                    go GaussKronrodOutNodeValues(Wt15[idx2], EWts[idx2], qsubsk_full[idx2][idx1], sem11);
-                }
-                // Drain the channel to obtain results of computations
-                for idx2 := 0; idx2 < NNodes; idx2++ {
-                    tmpOut := <-sem11;
-                    qsubsk[idx1] += tmpOut[0];
-                    errsubsk[idx1] += tmpOut[1];
-                }
-            }
+        // Create buffer we need to perform spacing check
+        t := make([][]float64, nsubs);
+        for idx0 := range t {
+            t[idx0] = make([]float64, NNodes);
+        }
 
-            // At this point, we have the estimated integral and the error
-            // for the subnterval. So store into the bigger buffer
-            for idx1 := range qsubsk {
-                qsubs[idx0][idx1] = qsubsk[idx1];
-                errsubs[idx0][idx1] = errsubsk[idx1];
-                q[idx1] += qsubsk[idx1];
+        // At this point, we have fired all the subroutines for all nodes
+        // in every subinterval. Now we need to collect the results.
+        for TotalPieces > 0 {
+            OutStruct := <-qsubsk_full;
+            fTmp := OutStruct.fTmp;
+            fxj := *fTmp;
+            t[OutStruct.subIdx][OutStruct.NIdx] = OutStruct.t;
+            for idx1, ffval := range fxj {
+                qsubs[OutStruct.subIdx][idx1] += ffval * OutStruct.wwt15;
+                errsubs[OutStruct.subIdx][idx1] += ffval * OutStruct.eewt;
             }
+            TotalPieces--;
+        }
 
+        for idx0 := 0; idx0 < expectSize; idx0++ {
+            for idx1 := 0; idx1 < nsubs; idx1++ {
+                q[idx0] += qsubs[idx1][idx0];
+            }
+        }
+
+        // Perform spacing check and terminate if required.
+        for idx0 := 0; idx0 < nsubs; idx0++ {
             // Terminate and exit if the spacing is too close
-            too_close = checkSpacing(&t);
+            too_close = checkSpacing(&t[idx0]);
             if too_close {
+                fmt.Printf("Spacing is too close!")
                 break;
             }
         }
@@ -919,8 +909,10 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
 
 // Function used as Go routine to parallelize GaussKronrod call to integral
 // function so as to speed up overall computation time.
-func GaussKronrodNodeComputeFunc(hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan Sem00ReturnStruct) {
-	var ssRet Sem00ReturnStruct;
+func GaussKronrodNodeComputeFunc(sIdx, nIdx int, wwt15, eewt, hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan QSubskReturnStruct) {
+	var ssRet QSubskReturnStruct;
+    ssRet.subIdx, ssRet.NIdx = sIdx, nIdx;
+    ssRet.wwt15, ssRet.eewt = wwt15, eewt;
 	ssRet.xx = NodeVal*hh + mmpts;
     ssRet.t, ssRet.w = TransformFunc(IntegLimits, ssRet.xx);
     ssRet.fTmp = f(ssRet.t);
@@ -929,14 +921,6 @@ func GaussKronrodNodeComputeFunc(hh, mmpts, NodeVal float64, IntegLimits *[]floa
         fxj[idx2] *= ssRet.w * hh;
     }
     queue <- ssRet;
-}
-
-// Function used as Go routine in GaussKronrod quadrature for computing q
-// and err in a particular subinterval.
-func GaussKronrodOutNodeValues(ww15, eewt, qsubsk_val float64, sem01 chan [2]float64) {
-	var tmpOut [2]float64;
-	tmpOut[0], tmpOut[1] = qsubsk_val * ww15, qsubsk_val * eewt;
-	sem01 <- tmpOut;
 }
 
 // Check to ensure spacing between integration nodes is sufficiently large
