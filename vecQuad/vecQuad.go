@@ -134,6 +134,7 @@ func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
 // IntegStruct data structure.
 func (s *IntegStruct) SetMode( ModeEnergy float64 ) {
     s.E_mode = ModeEnergy;
+    cmplxSparse.AddModeEnergy(s.E_mode, s.N_fmL, s.m_fmL, s.N_ox, s.m_ox, s.N_fmR, s.m_fmR, s.Hamiltonian);
 }
 
 // Function to allow external write access to Hamiltonian variable in
@@ -224,7 +225,6 @@ func (s *IntegStruct) NEGF_TestEnergyFunc( E_mode float64 ) *[]float64 {
     ProbDup.CopyIntegStruct(s);
 
     ProbDup.SetMode(E_mode);
-    cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
 
     EnergyVal := s.E_Fermi + E_mode -0.5*s.V_MTJ - 10*utils.K_q*s.Temperature;
     fmt.Println("Test0: EnergyVal",EnergyVal);
@@ -254,7 +254,6 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
     ProbDup.CopyIntegStruct(s);
 
     ProbDup.SetMode(E_mode);
-    cmplxSparse.AddModeEnergy(ProbDup.E_mode, ProbDup.N_fmL, ProbDup.m_fmL, ProbDup.N_ox, ProbDup.m_ox, ProbDup.N_fmR, ProbDup.m_fmR, ProbDup.Hamiltonian);
 
     // Begin integration over energy space
     ESteps, IntRelTol, IntAbsTol := float64(utils.K_q * ProbDup.Temperature), float64(1e-6), float64(1e-12);
