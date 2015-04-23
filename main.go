@@ -37,9 +37,9 @@ func main() {
     m_fm_L = float64(0.72);
     m_fm_R = m_fm_L;
 
-    Ub = 0.79;
-    E_split_L = 0.930;
-    E_split_R = 0.930;
+    Ub = 0.93;
+    E_split_L = 0.9;
+    E_split_R = E_split_L;
     E_Fermi = 2.25;
 
     fmt.Println("----------------------------------------");
@@ -60,10 +60,10 @@ func main() {
     fmt.Println("----------------------------------------");
 
 //
-    aSpace := float64(1.0e-11);
-    d_ox := float64(1.15e-9);
-    d_fm_L := float64(2.0e-11);
-    d_fm_R := float64(2.0e-11);
+    aSpace := float64(2.5e-11);
+    d_ox := float64(1.25e-9);
+    d_fm_L := 2.0*aSpace;
+    d_fm_R := 2.0*aSpace;
 /*
     aSpace := float64(0.25e-9);
     d_ox := float64(1.0e-9);
