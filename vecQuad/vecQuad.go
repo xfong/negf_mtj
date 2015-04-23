@@ -134,7 +134,7 @@ func (t *IntegStruct) CopyIntegStruct(s *IntegStruct) {
 // IntegStruct data structure.
 func (s *IntegStruct) SetMode( ModeEnergy float64 ) {
     s.E_mode = ModeEnergy;
-    cmplxSparse.AddModeEnergy(s.E_mode, s.N_fmL, s.m_fmL, s.N_ox, s.m_ox, s.N_fmR, s.m_fmR, s.Hamiltonian);
+    cmplxSparse.AddModeEnergy(-1.0*s.E_mode, s.N_fmL, s.m_fmL, s.N_ox, s.m_ox, s.N_fmR, s.m_fmR, s.Hamiltonian);
 }
 
 // Function to allow external write access to Hamiltonian variable in
