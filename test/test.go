@@ -47,6 +47,8 @@ func main() {
 	testRangeScale(complex(4.5,0.0), 17, 17, 2, 10 );
 
 	testAddModeProfile(3.0, 2, 1.0, 2, 2.0, 2, 3.0);
+
+	testAddModeProfile(0.10, 2, 0.75, 4, 0.25, 2, 0.75);
 }
 
 func testIdentity() {
