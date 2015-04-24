@@ -707,13 +707,13 @@ func SelfEnergyEntries(currEnergy, modeEnergy, delta0, delta1, potential float64
     SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
-    sig_uu := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, 1.0) * cmplx.Acos(SumEnergy));
+    sig_uu := complex(-1.0,0.0) * t0 * cmplx.Exp(1.0i * cmplx.Acos(SumEnergy));
 
     SumEnergy = complex(currEnergy - modeEnergy + 0.5*potential - delta1, utils.Zplus);
     SumEnergy /= complex(-2.0, 0.0) * t0;
     SumEnergy += complex(1.0, 0.0);
 
-    sig_dd := complex(-1.0,0.0) * t0 * cmplx.Exp(complex(0.0, 1.0) * cmplx.Acos(SumEnergy));
+    sig_dd := complex(-1.0,0.0) * t0 * cmplx.Exp(1.0i * cmplx.Acos(SumEnergy));
 
     s[0][0] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][0] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][0];
     s[0][1] = cmplx.Conj(BT_Mat[0][0])*sig_uu*BT_Mat[0][1] + cmplx.Conj(BT_Mat[1][0])*sig_dd*BT_Mat[1][1];
