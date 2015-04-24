@@ -38,7 +38,7 @@ func main() {
     m_fm_R = m_fm_L;
 
     Ub = 0.79;
-    E_split_L = 0.930;
+    E_split_L = 1.75;
     E_split_R = E_split_L;
     E_Fermi = 2.25;
 
