@@ -39,7 +39,7 @@ func main() {
 
     Ub = 0.79;
     E_split_L = 0.930;
-    E_split_R = 0.930;
+    E_split_R = E_split_L;
     E_Fermi = 2.25;
 
     fmt.Println("----------------------------------------");
