@@ -38,7 +38,7 @@ func New() *SparseMat {
 
 // Function to create duplicate copy of sparse diagonal matrix
 func SparseCopy(s *SparseMat) *SparseMat {
-    t := New();
+    t := new(SparseMat);
     MatrixSize := len(s.Data);
     if (MatrixSize > 0) {
         t.Data = make([][]complex128, MatrixSize);
