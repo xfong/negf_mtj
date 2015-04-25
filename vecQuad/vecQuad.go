@@ -264,8 +264,8 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
 
     // Start by working on the interval [min(mu1, mu2), max(mu1, mu2)]
     subInterval := make([]float64, 2);
-    subInterval[0] = s.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ);
-    subInterval[1] = s.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ);
+    subInterval[0] = ProbDup.E_Fermi - math.Abs(0.5*ProbDup.V_MTJ);
+    subInterval[1] = ProbDup.E_Fermi + math.Abs(0.5*ProbDup.V_MTJ);
     tempLow, tempHigh := subInterval[0], subInterval[1];
     IntervalLength := subInterval[1] - subInterval[0];
 
@@ -296,11 +296,11 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         CountIterations++;
         subInterval[1] = tempLow;
         subInterval[0] = subInterval[1]-ESteps;
-        t_resultA, _ = IntegralCalcConcurrent(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        t_resultA, _ = IntegralCalcConcurrent(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
         tempLow = subInterval[0];
         subInterval[0] = tempHigh;
         subInterval[1] = subInterval[0]+ESteps;
-        t_resultB, _ = IntegralCalcConcurrent(s.NEGF_EnergyIntegFunc, &subInterval, 4);
+        t_resultB, _ = IntegralCalcConcurrent(ProbDup.NEGF_EnergyIntegFunc, &subInterval, 4);
         tempHigh = subInterval[1];
 
         flagSum := 0;
@@ -319,10 +319,10 @@ func (s *IntegStruct) NEGF_ModeIntegFunc( E_mode float64 ) *[]float64 {
         }
     }
 
-    t_result[0] *= s.ECurrFactor;
-    t_result[1] *= s.SCurrFactor;
-    t_result[2] *= s.SCurrFactor;
-    t_result[3] *= s.SCurrFactor;
+    t_result[0] *= ProbDup.ECurrFactor;
+    t_result[1] *= ProbDup.SCurrFactor;
+    t_result[2] *= ProbDup.SCurrFactor;
+    t_result[3] *= ProbDup.SCurrFactor;
 
     // Return result
     return &t_result;
