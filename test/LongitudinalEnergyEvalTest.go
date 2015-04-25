@@ -132,45 +132,7 @@ func main() {
 
     // Check integration over longitudinal energies.
     // At 0 eV for transverse mode
-    currentsPtr := ProblemSet.NEGF_ModeIntegFunc(0.0);
+    currentsPtr := ProblemSet.NEGF_TestEnergyFunc(3.0);
     currents := *currentsPtr;
 
-    fmt.Println("First test case: 0 eV transverse mode energy");
-    for idx0 := 0; idx0 < len(currents); idx0++ {
-        fmt.Printf("currents[%d]=%.15g", idx0, currents[idx0]);
-	if idx0 < (len(currents) - 1) {
-	    fmt.Printf(", ");
-	} else {
-	    fmt.Printf("\n");
-	}
-    }
-
-    // At 0.4 eV for transverse mode
-    currentsPtr = ProblemSet.NEGF_ModeIntegFunc(0.4);
-    currents = *currentsPtr;
-    
-    fmt.Println("Second test case: 0.4 eV transverse mode energy");
-    for idx0 := 0; idx0 < len(currents); idx0++ {
-        fmt.Printf("currents[%d]=%.15g", idx0, currents[idx0]);
-	if idx0 < (len(currents) - 1) {
-	    fmt.Printf(", ");
-	} else {
-	    fmt.Printf("\n");
-	}
-    }
-
-    // At 0.8 eV for transverse mode
-    currentsPtr = ProblemSet.NEGF_TestEnergyFunc(3.0);
-    currents = *currentsPtr;
-    
-    fmt.Println("Third test case: 0.8 eV transverse mode energy");
-    for idx0 := 0; idx0 < len(currents); idx0++ {
-        fmt.Printf("currents[%d]=%.15g", idx0, currents[idx0]);
-	if idx0 < (len(currents) - 1) {
-	    fmt.Printf(", ");
-	} else {
-	    fmt.Printf("\n");
-	}
-    }
 }
-
