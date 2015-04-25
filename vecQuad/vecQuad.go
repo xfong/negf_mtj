@@ -491,13 +491,12 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
     // Generate 10 subintervals first
     nsubs := 10;
     var (
-        subs, qsubs, errsubs, xx                                                [][]float64;
-        qsubsk, errsubsk, t, w, fxj, q_ok, err_ok, err_not_ok, midpts, halfh	[]float64;
-        fTmp                                                                    *[]float64;
-        NNodes, nleft                                                           int;
-        too_close                                                               bool;
+        subs, qsubs, errsubs, xx                            [][]float64;
+        qsubsk, errsubsk, t, w, q_ok, err_ok, err_not_ok	[]float64;
+        NNodes, nleft                                       int;
+        too_close                                           bool;
     );
-    fxj = make([]float64, expectSize);
+
     // Set up buffer for accumulating results over one subinterval
     qsubsk, errsubsk = make([]float64, expectSize), make([]float64, expectSize);
 
@@ -545,9 +544,9 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
         // of every subinterval at the beginning of the iteration.
         // midpts[nn] and halfh[nn] stores the midpts and length of the nn-th
         // subinterval, respectively.
-        midpts, halfh = make([]float64, nsubs), make([]float64, nsubs);
+        midpts, halfh := make([]float64, nsubs), make([]float64, nsubs);
 
-        for idx0 := 0; idx0 < nsubs; idx0++ {
+        for idx0 := range subs {
             midpts[idx0], halfh[idx0] = 0.5*(subs[idx0][0] + subs[idx0][1]), 0.5*(subs[idx0][1] - subs[idx0][0]);
         }
 
@@ -580,8 +579,8 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
             for idx1, NodeVal := range Nodes {
                 xx[idx0][idx1] = NodeVal*halfh[idx0] + midpts[idx0];
                 t[idx1], w[idx1] = TransformFunc(IntegLimits, xx[idx0][idx1]);
-                fTmp = f(t[idx1]);
-                fxj = *fTmp;
+                fTmp := f(t[idx1]);
+                fxj := *fTmp;
                 qsubsk_full[idx1] = fxj;
                 for idx2 := range fxj {
                     qsubsk_full[idx1][idx2] *= w[idx1] * hh;
@@ -670,7 +669,7 @@ func IntegralCalc(f func(float64) *[]float64, IntegLimits *[]float64, expectSize
 
         // Dividing subintervals before reiterating
         nsubs = 2 * nleft;
-        subs = subs[0:(nleft-1)]; // Trim the subs array first
+        subs = subs[:nleft]; // Trim the subs array first
         if (nsubs > MaxIntervalCount ) {
             fmt.Println("ERROR: MaxIntervalCount reached!");
             errors.New("ERROR: MaxIntervalCount reached!");
@@ -702,10 +701,10 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
     // Generate 10 subintervals first
     nsubs := 10;
     var (
-        subs, qsubs, errsubs                        [][]float64;
-        q_ok, err_ok, err_not_ok, midpts, halfh     []float64;
-        NNodes, nleft                               int;
-        too_close                                   bool;
+        subs, qsubs, errsubs        [][]float64;
+        q_ok, err_ok, err_not_ok	[]float64;
+        NNodes, nleft               int;
+        too_close                   bool;
     );
 
     NNodes = len(Nodes);
@@ -753,7 +752,7 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
         // of every subinterval at the beginning of the iteration.
         // midpts[nn] and halfh[nn] stores the midpts and length of the nn-th
         // subinterval, respectively.
-        midpts, halfh = make([]float64, nsubs), make([]float64, nsubs);
+        midpts, halfh := make([]float64, nsubs), make([]float64, nsubs);
 
         for idx0 := 0; idx0 < nsubs; idx0++ {
             midpts[idx0], halfh[idx0] = 0.5*(subs[idx0][0] + subs[idx0][1]), 0.5*(subs[idx0][1] - subs[idx0][0]);
@@ -884,7 +883,7 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
 
         // Dividing subintervals before reiterating
         nsubs = 2 * nleft;
-        subs = subs[0:(nleft-1)]; // Trim the subs array first
+        subs = subs[:nleft]; // Trim the subs array first
         if (nsubs > MaxIntervalCount ) {
             fmt.Println("ERROR: MaxIntervalCount reached!");
             errors.New("ERROR: MaxIntervalCount reached!");
