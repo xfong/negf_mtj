@@ -206,7 +206,7 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
             }
             t[idx0] += ti[idx0];
         }
-        if ((flagSum == 0) || (CountIntervals > 3)) {
+        if ((flagSum == 0) || (CountIntervals > 10)) {
             if (CountIntervals > 10) {
                 fmt.Println("Integration of mode energies exceeded 10 intervals!");
             }
