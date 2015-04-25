@@ -135,4 +135,11 @@ func main() {
     currentsPtr := ProblemSet.NEGF_TestEnergyFunc(3.0);
     currents := *currentsPtr;
 
+    for idx0, currVal := range currents {
+	if (idx0 < 3) {
+            fmt.Printf("current[%d] = %.15g, ", idx0, currVal);
+        } else {
+	    fmt.Printf("current[%d] = %.15g\n", idx0, currVal);
+	}
+    }
 }
