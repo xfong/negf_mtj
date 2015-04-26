@@ -1121,8 +1121,8 @@ func IntegralCalcConcurrentOld(f func(float64) *[]float64, IntegLimits *[]float6
 
 // Function used as Go routine to parallelize GaussKronrod call to integral
 // function so as to speed up overall computation time.
-func GaussKronrodNodeComputeFunc(sIdx, nIdx int, wwt15, eewt, hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan QSubskReturnStruct) {
-	var ssRet QSubskReturnStruct;
+func GaussKronrodNodeComputeFunc(sIdx, nIdx int, wwt15, eewt, hh, mmpts, NodeVal float64, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, queue chan<- QSubskReturnStruct) {
+    var ssRet QSubskReturnStruct;
     ssRet.subIdx, ssRet.NIdx = sIdx, nIdx;
     ssRet.wwt15, ssRet.eewt = wwt15, eewt;
 	ssRet.xx = NodeVal*hh + mmpts;
