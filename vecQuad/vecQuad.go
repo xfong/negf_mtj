@@ -26,6 +26,18 @@ type IntegStruct struct {
     ECurrFactor, SCurrFactor    float64;
 }
 
+type QSubReturnStruct struct {
+    qsubs           []float64
+    errbnd          []float64
+    subs            [][]float64
+    nsubs           int
+    q, q_ok, err_ok	[]float64
+    t               [][]float64
+    too_close       bool
+    passed_clean    bool
+    MaxInterval     bool
+}
+
 type QSubskReturnStruct struct {
     fTmp            *[]float64
     xx, t, w        float64
@@ -771,21 +783,9 @@ func IntegralCalcConcurrent(f func(float64) *[]float64, IntegLimits *[]float64, 
         // Create channel for individual pieces to return results
         TotalPieces := nsubs * NNodes;
         qsubsk_full := make(chan QSubskReturnStruct, TotalPieces);
-        // Begin going through every subinterval to calculate integral over
-        // each of them. TODO: convert the inside of the following into Go
-        // routine so as to enable parallel execution.
-        for idx0 := 0; idx0 < nsubs; idx0++ {
 
-            hh, mmpts := halfh[idx0], midpts[idx0];
-
-            // For each subinterval, scan through the nodes to compute values
-            // Using Go routines to perform parallel computations at each node.
-            // The channel is used as the intermediate buffer for results of
-            // each computation performed in parallel.
-            for idx1, NodeVal := range Nodes {
-                go GaussKronrodNodeComputeFunc(idx0, idx1, Wt15[idx1], EWts[idx1], hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, qsubsk_full);
-            }
-        }
+        // Using separate Go routine to launch producer functions
+        go GaussKronrodProducerFunc(&Nodes, &Wt15, &EWts, &halfh, &midpts, IntegLimits, TransformFunc, f, qsubsk_full)
 
         // Create buffer we need to perform spacing check
         t := make([][]float64, nsubs);
@@ -1116,6 +1116,162 @@ func IntegralCalcConcurrentOld(f func(float64) *[]float64, IntegLimits *[]float6
         }
         subs = subs_div;
     }
+    return;
+}
+
+/*
+// Function used as Go routine to consume results from GaussKronrod
+// quadrature computation at each node to calculate results over
+// subintervals, and return subinervals that failed.
+func GaussKronrodConsumerFunc(nsubs, TotalPieces, expectSize int, pathlen float64, halfh, midpts []float64, subsPtr *[][]float64, CombinedChannel chan<- QSubReturnStruct, qsubsk_full <-chan QSubskReturnStruct) {
+    var outputData QSubReturnStruct;
+    outputData.q = make([]float64, expectSize);
+    for idx0 := range outputData.q {
+        outputData.q[idx0] = 0.0;
+    }
+    subs := * subsPtr;
+
+    // Create buffer we need to perform spacing check
+    outputData.t = make([][]float64, nsubs);
+    NNodes := len(Nodes);
+    for idx0 := range outputData.t {
+        outputData.t[idx0] = make([]float64, NNodes);
+    }
+
+    qsubs, errsubs := make([][]float64, nsubs), make([][]float64, nsubs);
+    for idx0 := range qsubs {
+        qsubs[idx0] = make([]float64, expectSize);
+        errsubs[idx0] = make([]float64, expectSize);
+    }
+
+    // At this point, we have fired all the subroutines for all nodes
+    // in every subinterval. Now we need to collect the results.
+    for TotalPieces > 0 {
+        OutStruct := <-qsubsk_full;
+        fTmp := OutStruct.fTmp;
+        fxj := *fTmp;
+        outputData.t[OutStruct.subIdx][OutStruct.NIdx] = OutStruct.t;
+        for idx1, ffval := range fxj {
+            qsubs[OutStruct.subIdx][idx1] += ffval * OutStruct.wwt15;
+            errsubs[OutStruct.subIdx][idx1] += ffval * OutStruct.eewt;
+        }
+        TotalPieces--;
+    }
+
+    for idx0 := 0; idx0 < expectSize; idx0++ {
+        for idx1 := 0; idx1 < nsubs; idx1++ {
+            outputData.q[idx0] += qsubs[idx1][idx0];
+        }
+    }
+
+    // Perform spacing check and terminate if required.
+    for idx0 := 0; idx0 < nsubs; idx0++ {
+        // Terminate and exit if the spacing is too close
+        outputData.too_close = checkSpacing(&outputData.t[idx0]);
+        if outputData.too_close {
+            fmt.Printf("Spacing is too close!")
+            CombinedChannel <- outputData;
+            return;
+        }
+    }
+
+    // Scan through the subintervals and reiterate for those
+    // subintervals that are insufficiently accurate
+    nleft := 0;
+    tmpMidPtr := new([]float64);
+    tmpMids := *tmpMidPtr;
+
+    tol, tolr, tola := make([]float64, expectSize), make([]float64, expectSize), 2.0*AbsTol/pathlen;
+    for idx0 := range outputData.q {
+        tol[idx0] = RelTol * math.Abs(outputData.q[idx0]);
+        tolr[idx0] = 2.0*tol[idx0]/pathlen;
+    }
+    for idx0 := 0; idx0 < nsubs; idx0++ {
+        abserrsubsk := make([]float64, expectSize);
+        flagSum0 := int(0);
+        for idx1 := range outputData.q {
+            abserrsubsk[idx1] = math.Abs(errsubs[idx0][idx1]);
+            if ((abserrsubsk[idx1] > tolr[idx1] * halfh[idx0]) && (abserrsubsk[idx1] > tola * halfh[idx0])) {
+                flagSum0++;
+            }
+        }
+        if (flagSum0 == 0) {
+            for idx1 := 0; idx1 < expectSize; idx1++ {
+                outputData.q_ok[idx1] += qsubs[idx0][idx1];
+                outputData.err_ok[idx1] += errsubs[idx0][idx1];
+            }
+        } else {
+            // If the interal over the subinterval is not accurate
+            // enough, move it to the front of the subs array
+            subs[nleft] = subs[idx0];
+            tmpMids = append(tmpMids, midpts[idx0]);
+            nleft++;
+            for idx1 := range err_not_ok {
+                err_not_ok[idx1] += abserrsubsk[idx1];
+            }
+        }
+    }
+    // By this point, we have figured out the subintervals that failed
+    // tolerance checks. We will divide the subintervals into two and
+    // reiterate the "infinite" for loop.
+    flagSum1 := int(0);
+    for idx0 := range errbnd {
+        errbnd[idx0] = math.Abs(err_ok[idx0]) + err_not_ok[idx0];
+        if ((errbnd[idx0] > tol[idx0]) && (errbnd[idx0] > AbsTol)) {
+            flagSum1++;
+        }
+    }
+
+    // Break out of infinite loop if we are within error bounds.
+    if ((nleft < 1) || (flagSum1 == 0)) {
+        outputData.passed_clean = true;
+        CombinedChannel <- outputData;
+    }
+
+    // Dividing subintervals before reiterating
+    nsubs = 2 * nleft;
+    subs = subs[:nleft]; // Trim the subs array first
+    if (nsubs > MaxIntervalCount ) {
+        fmt.Println("ERROR: MaxIntervalCount reached!");
+        errors.New("ERROR: MaxIntervalCount reached!");
+        outputData.MaxInterval = true;
+    }
+    outputData.subs = make([][]float64, nsubs);
+    for idx0 := range subs {
+        targIdxL := 2*idx0;
+        targIdxH := targIdxL + 1;
+        outputData.subs[targIdxL] = make([]float64, 2);
+        outputData.subs[targIdxH] = make([]float64, 2);
+        outputData.subs[targIdxL][0] = subs[idx0][0];
+        outputData.subs[targIdxH][1] = subs[idx0][1];
+        outputData.subs[targIdxL][1] = tmpMids[idx0];
+        outputData.subs[targIdxH][0] = tmpMids[idx0];
+    }
+
+	CombinedChannel <- outputData;
+}
+*/
+
+// Function used as Go routine to generate producers that aid in
+// GaussKronrod quadrature computation
+func GaussKronrodProducerFunc(nodesptr, wwt15p, eewtsp *[15]float64, halfhp, midptsp, IntegLimits *[]float64, TransformFunc func(*[]float64, float64) (float64, float64), f func(float64) *[]float64, qsubsk_full chan<- QSubskReturnStruct) {
+	// Begin going through every subinterval to calculate integral over
+    // each of them. TODO: convert the inside of the following into Go
+    // routine so as to enable parallel execution.
+    halfh, midpts, wwt15, eewts, nodesarr := *halfhp, *midptsp, *wwt15p, *eewtsp, *nodesptr;
+    for idx0 := range halfh {
+
+        hh, mmpts := halfh[idx0], midpts[idx0];
+
+        // For each subinterval, scan through the nodes to compute values
+        // Using Go routines to perform parallel computations at each node.
+        // The channel is used as the intermediate buffer for results of
+        // each computation performed in parallel.
+        for idx1, NodeVal := range nodesarr {
+            go GaussKronrodNodeComputeFunc(idx0, idx1, wwt15[idx1], eewts[idx1], hh, mmpts, NodeVal, IntegLimits, TransformFunc, f, qsubsk_full);
+        }
+    }
+
     return;
 }
 
