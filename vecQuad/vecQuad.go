@@ -203,6 +203,7 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
         subInterval[0] = subInterval[1];
         subInterval[1] += ESteps;
         ti, errbndi := IntegralCalc(ProbDup.NEGF_ModeIntegFunc, &subInterval, 4);
+        fmt.Printf("Accumulated currents:\n current[0] = %.15g\n current[1] = %.15g\n current[2] = %.15g\n current[3] = %.15g\n", t[0], t[1], t[2], t[3]);
         fmt.Printf("Calculated currents for mode energy integration interval %d:\n current[0] = %.15g\n current[1] = %.15g\n current[2] = %.15g\n current[3] = %.15g\n", CountIntervals, ti[0], ti[1], ti[2], ti[3]);
         fmt.Printf("Error bound for mode energy integration interval %d:\n errbnd[0] = %.15g\n errbnd[1] = %.15g\n errbnd[2] = %.15g\n errbnd[3] = %.15g\n", CountIntervals, errbndi[0], errbndi[1], errbndi[2], errbndi[3]);
         flagSum := 0;

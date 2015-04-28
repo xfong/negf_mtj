@@ -4,6 +4,7 @@ package main
 
 import (
     "math"
+    "runtime"
     "fmt"
     "github.com/negf_mtj/negf_mtj/cmplxSparse"
     "github.com/negf_mtj/negf_mtj/vecQuad"
@@ -23,6 +24,7 @@ var (
 );
 
 func main() {
+    runtime.GOMAXPROCS(runtime.NumCPU());
     fmt.Println("Pi =", utils.Pi)
     fmt.Println("Planck constant =", utils.Hplanck)
     fmt.Println("Reduced Planck constant =", utils.Hbar)
