@@ -183,7 +183,7 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     ProbDup.CopyIntegStruct(s);
     // Integrate over mode energies. We will increment in steps of 0.2 till
     // the integral is less than some tolerance 
-    ESteps, IntRelTol, IntAbsTol := float64(0.1), float64(1e-6), float64(1e-12);
+    ESteps, IntRelTol, IntAbsTol := float64(0.1), float64(5e-4), float64(1e-12);
     CountIntervals := 0;
 
     // Use array to store subinterval being worked on. For the first
