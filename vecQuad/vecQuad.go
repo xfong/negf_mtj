@@ -183,7 +183,7 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
     ProbDup.CopyIntegStruct(s);
     // Integrate over mode energies. We will increment in steps of 0.2 till
     // the integral is less than some tolerance 
-    ESteps, IntRelTol, IntAbsTol := float64(0.1), float64(5e-4), float64(1e-12);
+    ESteps, IntRelTol, IntAbsTol := float64(0.1), float64(5e-4), float64(1e-5);
     CountIntervals := 0;
 
     // Use array to store subinterval being worked on. For the first
@@ -207,11 +207,11 @@ func (s *IntegStruct) NEGF_AutoModeInteg() *[]float64 {
         fmt.Printf("Calculated currents for mode energy integration interval %d:\n current[0] = %.15g\n current[1] = %.15g\n current[2] = %.15g\n current[3] = %.15g\n", CountIntervals, ti[0], ti[1], ti[2], ti[3]);
         fmt.Printf("Error bound for mode energy integration interval %d:\n errbnd[0] = %.15g\n errbnd[1] = %.15g\n errbnd[2] = %.15g\n errbnd[3] = %.15g\n", CountIntervals, errbndi[0], errbndi[1], errbndi[2], errbndi[3]);
         flagSum := 0;
-        for idx0 := range ti {
-            if ((math.Abs(ti[idx0]) > IntAbsTol) && (math.Abs(ti[idx0]) > math.Abs(t[idx0]) * IntRelTol)) {
+        for idx0, tVal := range ti {
+            if ((math.Abs(tVal) > IntAbsTol) && (math.Abs(tVal) > math.Abs(t[idx0])*IntRelTol)) {
                 flagSum++;
             }
-            t[idx0] += ti[idx0];
+            t[idx0] += tVal;
         }
         if ((flagSum == 0) || (CountIntervals > 10)) {
             if (CountIntervals > 10) {
